@@ -1,0 +1,57 @@
+name: Deploy Slidev Decks to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # Or 'master', depending on your default branch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build_and_deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build All Decks
+        run: |
+          mkdir -p dist
+          for dir in episodes/*/; do
+            deck_name=$(basename "$dir")
+            echo "Building deck: $deck_name"
+            npx slidev build "$dir/slides.md" \
+              --base "/${{ github.event.repository.name }}/$deck_name/" \
+              --out "${GITHUB_WORKSPACE}/dist/$deck_name"
+          done
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

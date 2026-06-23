@@ -1,0 +1,27 @@
+{
+  "name": "unpackthepcap",
+  "version": "1.0.0",
+  "description": "UnpackThePCAP podcast slides",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keithjjones/UnpackThePCAP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/keithjjones/UnpackThePCAP/issues"
+  },
+  "homepage": "https://github.com/keithjjones/UnpackThePCAP#readme",
+  "devDependencies": {
+    "@slidev/cli": "^52.16.0"
+  },
+  "dependencies": {
+    "@slidev/theme-default": "^0.25.0"
+  }
+}
