@@ -32,8 +32,8 @@ html {
 .slidev-layout h3 { margin-bottom: 1rem; }
 
 .slidev-layout a { color: #268bd2; border-color: #268bd2; }
-.slidev-layout code { color: #b58900; background: none !important; }
-.slidev-layout pre { background: #073642 !important; }
+.slidev-layout code { color: #b58900; background: none !important; font-variant-ligatures: none; }
+.slidev-layout pre { background: #073642 !important; font-variant-ligatures: none; }
 .slidev-layout p,
 .slidev-layout li,
 .slidev-layout ul,

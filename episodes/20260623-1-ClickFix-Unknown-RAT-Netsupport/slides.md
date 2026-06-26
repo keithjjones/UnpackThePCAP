@@ -12,10 +12,6 @@ routerMode: hash
 <!--
 - Welcome to the first Unpack the PCAP. I'm Keith. Let's crack open a traffic capture.
 - Date: May 22nd, 2026.
-- This entire analysis is based on publicly available materials published by Brad Duncan at Malware-Traffic-Analysis.net and covered by the SANS Internet Storm Center diary #33034.
-  - The PCAP, step files, and extracted artifacts are all from his published analysis package.
-  - Every IP, domain, hash, and command shown here came from that package or from running the tools you'll see against the PCAP.
-  - Nothing here is speculative. Everything is backed by the data on the slide.
 - Title: "SmartApeSG ClickFix — Unidentified RAT pushes NetSupport RAT." A mouthful, but accurate.
 - "SmartApeSG"? That's the name they picked.
   - JOKE: Using "smart" and "ape" in the same name is like putting a suit on a gorilla. It doesn't make it less likely to bite your face off.
@@ -122,12 +118,12 @@ Domains and IPs can rotate, but the formula stays the same.
 
 | | |
 |---|---|
-| Intro & Context | Stage 3 — ClickFix |
-| Traffic Overview | Stage 4 — The Unidentified RAT |
-| Stage 1 — Compromised Healthcare Site | Stage 5 — NetSupport RAT |
-| Stage 2 — SmartApeSG Redirect Chain | Indicators of Compromise |
-| Stage 3 — ClickFix | Blue Team Takeaways |
-| Stage 4 — The Unidentified RAT | Closing Thoughts |
+| Intro & Context | Stage 6 — NetSupport RAT |
+| Traffic Overview | Indicators of Compromise |
+| Stage 1 — Compromised Healthcare Site | Blue Team Takeaways |
+| Stage 2 — SmartApeSG Redirect Chain | Closing Thoughts |
+| Stages 3/4 — ClickFix |  |
+| Stage 5 — The Unidentified RAT |  |
 
 <!--
 - Based on the PCAP, twelve sections covering the full infection chain from compromised healthcare site to NetSupport RAT.
