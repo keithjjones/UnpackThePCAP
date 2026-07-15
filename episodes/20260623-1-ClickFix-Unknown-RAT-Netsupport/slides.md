@@ -23,7 +23,7 @@ layout: center
 
 ## Get these interactive slides at
 
-# https://github.com/keithjjones/UnpackThePCAP
+# https://www.UnpackThePCAP.com
 
 <br><br>
 
