@@ -5,3 +5,6 @@ node_modules/
 skills-lock.json
 pcaps/
 output/
+dist/
+youtube-shorts.md
+full-prompt.md
