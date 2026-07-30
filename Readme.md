@@ -10,6 +10,7 @@ Slide decks for the Unpack the PCAP podcast — breaking down PCAPs one packet a
 
 ## Episodes
 
-| #   | Date       | Title                                   | Youtube Video | Show Notes | Slides | Source |
-|----:|:-----------|:----------------------------------------|:-------------:|:----------:|:------:|:------:|
-| 1   | 2026-06-23 | SmartApeSG ClickFix — Unknown RAT → NetSupport RAT | [View](https://youtu.be/GOWRDjaD74g) | [View](https://drkeithjones.com/index.php/2026/06/26/the-1-7-mb-captcha-how-a-fake-human-verification-check-delivered-two-rats/) | [View](https://keithjjones.github.io/UnpackThePCAP/20260623-1-ClickFix-Unknown-RAT-Netsupport/) | [slides.md](episodes/20260623-1-ClickFix-Unknown-RAT-Netsupport/slides.md) |
+| Ep.&nbsp;# | Date       | Title                                   | Youtube Video | Show Notes | Slides | Scripts |
+|----:|:-----------|:----------------------------------------|:-------------:|:----------:|:------:|:-------:|
+| 2   | 7/30/26 | Polish "Powiadomienie" JS Campaign — Credential Theft via FTP | [View](https://youtu.be/ThFJ3UjKCJA) | [View](https://drkeithjones.com/index.php/2026/07/30/polish-powiadomienie-js-campaign-credential-theft-via-ftp-exfiltration/) | [View](https://keithjjones.github.io/UnpackThePCAP/20260730-1-Polish-Powiadomienie-JS-Campaign/) | [View](episodes/20260730-1-Polish-Powiadomienie-JS-Campaign/scripts/) |
+| 1   | 6/23/26 | SmartApeSG ClickFix — Unknown RAT → NetSupport RAT | [View](https://youtu.be/GOWRDjaD74g) | [View](https://drkeithjones.com/index.php/2026/06/26/the-1-7-mb-captcha-how-a-fake-human-verification-check-delivered-two-rats/) | [View](https://keithjjones.github.io/UnpackThePCAP/20260623-1-ClickFix-Unknown-RAT-Netsupport/) | |
