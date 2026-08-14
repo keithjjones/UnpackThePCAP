@@ -1,0 +1,1024 @@
+00:00:00:00 - 00:00:06:48
+Keith
+Welcome to the first Unpack the PCAP. I'm Keith. Let's crack open a traffic capture.
+
+00:00:06:53 - 00:00:22:56
+Keith
+So this PCAP that we're talking about is from May 22nd, 2026. So if you're watching when this video is first posted it's pretty recent. The title is SmartApeSG ClickFix -Unidentified RAT pushes NetSupport RAT.
+
+00:00:22:56 - 00:00:41:09
+Keith
+Now I didn't come up with that. This actually came from a Brad Duncan posting where we get the PCAPs but it's a mouthful and also accurate. So SmartApeSG, that's a very strange name that they picked. Using the word smart and ape together in the same name is like putting a suit on a gorilla.
+
+00:00:41:24 - 00:00:46:12
+Keith
+Doesn't make it any less likely to bite your face off. But it's prettier, right?
+
+00:00:46:12 - 00:01:03:28
+Keith
+So what I have on the screen for you right now is the link to these slides. And I say that these slides are interactive because you're going to see there's some logs and things that go off to the right. And you can actually scroll and look at everything. So if you'd like to follow along and take a look at the data as I'm talking about it, go ahead and go to this link.
+
+00:01:03:31 - 00:01:07:45
+Keith
+Go down to the episode that you're interested in. Click on slides and you can follow along.
+
+00:01:07:50 - 00:01:18:48
+Keith
+Now I will say, please stick around to the end, and I will give you all the full links to the Brad Duncan analysis for this particular malware infection that I'll be talking about.
+
+00:01:18:48 - 00:01:52:14
+Keith
+And before we start, let me be clear where this data comes from. All the data in this presentation comes from publicly available sources, mainly published by Brad Duncan at Malware Traffic Analysis dot Net. It's also covered by the Sans Internet Storm Center Diary number 33034. The PCAP, the step files, all the extracted artifacts. It's all available from his site and every IP address, domain, hash, timestamp and command is backed by the PCAP itself.
+
+00:01:52:17 - 00:01:55:53
+Keith
+You can download it, you can open it up and you can verify everything.
+
+00:01:56:00 - 00:02:12:36
+Keith
+And the Zeek logs I'm going to show you how to make. We generate it by running Zeek against that PCAP that we download. Now, there's some things that you're not going to see in the PCAP, and Brad is giving you more evidence from this attack by creating what are called step files.
+
+00:02:12:36 - 00:02:39:26
+Keith
+And they're decrypted HTTP captures from the victim browser. You're going to see we're going to talk about whois and GeoIP lookups against every IP that we discuss. And I just want to get the point across that nothing here speculative or made up. I'm a security researcher, okay. Not a fiction writer. If I want to make things up, I'd write a novel because the royalties, the royalties are better there and nobody gets infected.
+
+00:02:39:26 - 00:03:18:47
+Keith
+Okay, so walking through the infection chain with jurisdictional attributions. So the very first attack starts with this website called Nhanhoa.org spelled N H A N H O A.org. And it's a federal health center in Garden Grove, California, but important to us... It runs a WordPress site and it was compromised. So you're probably if you've been in cybersecurity long enough, you know that WordPress is a common vector for attacks, and it's no different in this particular case.
+
+00:03:18:47 - 00:03:36:54
+Keith
+The second part of the infection comes from IP addresses assigned to Hetzner, which is a German company with US data centers in Virginia and Oregon. You're going to see that they're serving capture and from Oregon, and you're going to see stagers come from Virginia, and then you're going to see a zip file come from Oregon.
+
+00:03:36:54 - 00:03:47:37
+Keith
+The third step is identified. RAT C2 and Amsterdam registered to servers. It's FCZO, which ends up being part of UAE. And
+
+00:03:47:44 - 00:04:02:58
+Keith
+I'll explain how we made that link once I get to that particular part of the analysis. So you're going to see that I'm why I'm showing you this is there's a bunch of jurisdictions involved here. So if you were trying to investigate this, you're not just going to one company in one country.
+
+00:04:02:58 - 00:04:04:49
+Keith
+You're all over the globe.
+
+00:04:04:49 - 00:04:18:49
+Keith
+The fourth part of the infection chain is NetSupport RAT C2. And this is in Moldova via a company named MivoCloud. There's 48 attempts and they're all refused.
+
+00:04:18:54 - 00:04:31:37
+Keith
+There are three distinct jurisdictions across four stages. I've told you about Germany, UAE and Moldova. These attackers spread across more jurisdictions than most startups have revenue streams.
+
+00:04:31:37 - 00:04:49:05
+Keith
+So Brad Duncan's analysis the threat actors SmartApe, active since at least early 2026, SmartApe sounds a lot less like a cyber threat and much more like a rejected energy drink. New SmartApe! For when you need to hack all night and explain to law enforcement in the morning.
+
+00:04:49:10 - 00:04:56:05
+Keith
+But according to publish analysis, their playbook is to rotate domains and IP daily.
+
+00:04:56:05 - 00:05:15:29
+Keith
+But the formula stays the same. They compromise a WordPress site, inject JavaScript redirect chain into that site. They show a fake, verify your human page, trick the user into paste-executing a PowerShell command. And we're going to trace every packet of this.
+
+00:05:15:29 - 00:05:25:07
+Keith
+So let's fire up Zeek. By the way is a tool that makes you feel like a genius when the query works and an imposter when it doesn't.
+
+00:05:25:07 - 00:05:28:19
+Keith
+And today we're going to experience both of those.
+
+00:05:28:19 - 00:05:44:32
+Keith
+So in this outline based upon the PCAP we are going to cover 12 sections covering the full infection chain from compromised health care site to the NetSupport RAT. We'll trace every packet, every IP, every bad decision this machine made.
+
+00:05:44:32 - 00:05:45:42
+Keith
+Let's dive in.
+
+00:05:45:42 - 00:06:13:20
+Keith
+Documented in Brad Duncan's analysis, this diagram covers stages one through three inside the browser before the code actually executes. So you have stage one, which is the user visits the compromised website. In this case, it's a health care clinic in California. The compromised site has an injected script tag in there hidden in the HTML, and it points to another domain called Thunder Planet Hub dot
+
+00:06:13:20 - 00:06:13:37
+Keith
+top.
+
+00:06:13:37 - 00:06:26:51
+Keith
+And when this happens, the important thing is to the user... You're not going to see the URL change in the bar of your browser. It's all going to happen behind the scenes. So this thing loads silently.
+
+00:06:26:56 - 00:06:39:39
+Keith
+Stage two is a three hop JavaScript dominant action chain, which is what I just described here, which is all inside one TLS section and so on the outside....
+
+00:06:39:39 - 00:07:01:17
+Keith
+When we look at it with Zeek, Zeek is going to see one encrypted connection for all of it. The hops are invisible but we have Brad Duncan's step files. So we're going to walk through them. So per the step files we have hop one goes to this site. Or it goes to this URL that ends in beta cookie JS. It's obfuscated and base64 that I'll show you.
+
+00:07:01:22 - 00:07:23:17
+Keith
+And that hides the next, which is hop two and that next URL ends in rate-hook. And you'll see it in the example when I get to that slide. And this is going to be just clean JavaScript and it creates a script element for hop three. Hop three is going to end in principal-validator JS. This bad boy is 1.7MB.
+
+00:07:23:17 - 00:07:29:24
+Keith
+It's full react 19 tailwind CSS app.
+
+00:07:29:29 - 00:07:43:07
+Keith
+You know your CAPTCHAs fake when it weighs more. The most production apps. Stage three the fake CAPTCHA. So you're going to get this CAPTCHA looking website and you're going to get a spinning icon and you're going to get clean
+
+00:07:43:07 - 00:07:43:30
+Keith
+layout.
+
+00:07:43:30 - 00:08:13:20
+Keith
+And it's going to be a very professional look because of all those things that we just talked about that were installed earlier. The button doesn't work, but it shows instructions instead. And it says press Win-R. Paste this command to verify you’re human. That's the ClickFix trick convincing users to bypass every security boundary your browser has. It's a digital equivalent of a free candy windowless van.
+
+00:08:13:25 - 00:08:19:27
+Keith
+Based on the PCAP in the step file, this diagram covers the rest of the stages four through six,
+
+00:08:19:32 - 00:08:27:34
+Keith
+and this is what happens after they press enter on what we just left off with the the whole PowerShell windowless van.
+
+00:08:27:39 - 00:08:34:09
+Keith
+Stage four the PowerShell one liner fires and it downloads from this IP address that starts in 178.
+
+00:08:34:09 - 00:08:51:46
+Keith
+You see on your screen. That's the first stage. And that's the Hetzner company that I talked about earlier. And this in particular is an Ashburn, Virginia. When that happens a script is returned. That script spawns a hidden PowerShell child process.
+
+00:08:51:46 - 00:08:56:36
+Keith
+No, no. Tray icon. The malware equivalent of a burner phone.
+
+00:08:56:36 - 00:09:14:47
+Keith
+Then the child reaches out to this five dot address and you can see it on your slide there. Stager two same Hetzner subnet and this returns a system maintenance utility script. That's what it says in the comments. Yeah sure it is.
+
+00:09:14:47 - 00:09:22:35
+Keith
+It creates a folder under the local app data directory with a random looking subdirectory.
+
+00:09:22:35 - 00:09:37:30
+Keith
+This downloads a zip from a northern bridge works dot com domain, and it extracts this new tool called knmanager.exe, and it launches it hidden. And then it deletes the zip and basically covers its track.
+
+00:09:37:35 - 00:09:47:10
+Keith
+In cleans up after itself. How considerate. So stage five is the knmanager.exe. And this is the unidentified RAT.
+
+00:09:47:10 - 00:09:52:22
+Keith
+At the time of recording it didn't have a name. So we're just going to keep calling it the unidentified rat.
+
+00:09:52:22 - 00:10:15:05
+Keith
+This RAT phones home to this 89 address in Amsterdam, and it uses a custom raw TCP protocol. It uses the TLS port so 443, but it doesn't have the TLS handshake. So you're going to see that Zeek is going to say that this service equals null. So we're going to be able to see it. And it sticks out like a sore thumb.
+
+00:10:15:10 - 00:10:40:28
+Keith
+This connection is going to download 17MB over this channel. And that ends up being the NetSupport installer. NetSupport is just another type of management tool for a computer that sometimes used for good, but also a lot of times used for bad. In this case it's used for bad. This rat’s, the unidentified one, its only job was to download another RAT the NetSupport RAT.
+
+00:10:40:28 - 00:10:45:34
+Keith
+So it's like it's like malware Uber Eats. It brings you a new malware.
+
+00:10:45:34 - 00:10:55:44
+Keith
+Stage six is the NetSupport RAT stage. So you're going to see NetSupport has some C2 going to this 194 address in Moldova.
+
+00:10:55:49 - 00:11:06:11
+Keith
+You're going to see 48 connection attempts in 24 minutes. All refused. And the server is going to return things like reset and ack together, which means reset this
+
+00:11:06:11 - 00:11:07:49
+Keith
+connection.
+
+00:11:07:54 - 00:11:23:37
+Keith
+The configuration file for NetSupport will confirm that the gateway address is this 194 address. This RAT was installed. It was ready. It called home 48 times, but at C2 ghosted it. Even malware gets stood up.
+
+00:11:23:37 - 00:11:50:33
+Keith
+The PCAP from Brad Duncan is 64MB. It was captured on Friday, May 22nd, 2026. So let's go ahead and ask Zeek what we're working with. We're going to pipe this PCAP into Zeek. The dash uppercase C says ignore checksum errors which sometimes that happens in capture. So I usually put it on there for good measure. And the dash little R says read the PCAP offline.
+
+00:11:50:33 - 00:12:03:28
+Keith
+And then we're going to point our logs to the directory output slash Zeek dash logs. And you can see at the bottom here I'll scroll over for you.
+
+00:12:03:33 - 00:12:12:58
+Keith
+We just get a normal set of Zeek logs. You see things like con, DNS, HTTPS, SSL files and plus a few others.
+
+00:12:12:58 - 00:12:29:46
+Keith
+So here's a magic trick I like to query Zeek logs, and in this case we generate it from this published PCAP from Brad Duncan using a tool called DuckDB and DuckDB's kind of like SQLite, if you've ever heard of that and haven't heard of DuckDB, they're very similar.
+
+00:12:29:46 - 00:12:58:26
+Keith
+They have the ability to load an extension. And my friend Yacin Nadji wrote the Zeek extension that reads these files in and makes them tables. It is the greatest thing ever. And in this slide I'm showing you how you can actually install it. So the force install pulls the latest even if it's already installed. You can if you've already got it installed with just the install command, you can update the extensions with the update extensions command, and it'll just refresh the installed ones.
+
+00:12:58:26 - 00:13:21:57
+Keith
+And then when you use this extension, you pretty much are always going to have the same first two lines, which is load init, which gives DuckDB the ability to deal with internet numbers like IP addresses and things like that. And then you say load zeek which load that loads your Zeek extension so you can read the Zeek logs natively inside DuckDB.
+
+00:13:22:02 - 00:13:25:43
+Keith
+And then you call a function called read underscore Zeek and you point it toward your
+
+00:13:25:43 - 00:13:39:36
+Keith
+log. And I will take a little tangent here and say we're showing text files. But if you had it zipped, if it was like dot log dot gz, it just magically deals with that too. It uncompresses it and just deals with it so you don't have to.
+
+00:13:39:40 - 00:13:50:14
+Keith
+It's one of the greatest companion tools you can use next to Zeek when you want to join these logs together and pull things very quickly with just SQL expressions.
+
+00:13:50:14 - 00:13:59:43
+Keith
+All right. So this is a quick setup note I'm putting on your screen because we're going to use this tool throughout. So be sure you get this right. We're going to use functionality going forward.
+
+00:13:59:43 - 00:14:20:04
+Keith
+Based upon the PCAP, the capture window is about 24.5 minutes, and it's around 4 p.m. eastern time or 8:00 Universal Time. Pick your time zone. The crime happened regardless, and by the crime happened, I mean someone's afternoon just got significantly worse.
+
+00:14:20:04 - 00:14:39:51
+Keith
+What's our victim IP address. Let's just have Zeek ask against the PCAP. And when we run DuckDB against our Zeek logs we see that there's only one IP address 10.5.22.101. And I'm not going to read all these for you every single time since they're on the screen, you're going to hear me kind of refer to their shorthand.
+
+00:14:39:51 - 00:14:43:23
+Keith
+So things like, you know, the 194 address.
+
+00:14:43:23 - 00:14:55:15
+Keith
+But in this particular case we only have one IP address as the originator. So I wanted to read the whole thing for you. If you open this PCAP in Wireshark, just get a peek at it. And you saw dozens more IP addresses...
+
+00:14:55:15 - 00:15:12:49
+Keith
+Don't panic. What I'm telling you is the originator IP address or the source the one that started the connection. Okay. And the victim is the only originator here. Everything else is a responder. It's servers, gateways, DNS resolvers and so forth.
+
+00:15:12:49 - 00:15:31:18
+Keith
+When we query a PCAP how many connections to the local subnet. So how much does our victim box talk to local boxes on our subnet. So we can actually use some fancy magic and DuckDB and say hey we need IP addresses that fall within a subnet.
+
+00:15:31:18 - 00:15:49:15
+Keith
+And that's the less than, less than equals operator, which says this IP address has to be within this subnet. And you can see that there's 93 connections to the 10.5.22/24 network. So let's break these down by individual IP addresses.
+
+00:15:49:15 - 00:16:13:39
+Keith
+As the Zeek logs show 88 are to the subnets gateway. Five of them are to the broadcast network address. The gateway is chatty. It's a router. It routes, nothing weird there. Nothing nothing to see it all really. At least it's doing its job. And you're going to see some malware C2 in a few slides. They don't do their job, so at least this one is doing its job.
+
+00:16:13:39 - 00:16:38:19
+Keith
+So per the http log from the PCAP we see for user agents, Chrome 148, PowerShell 5.1 and Windows NCSI. And if you do a little offline research on the PowerShell build number of 26,100, you're going to see that this is going to land in the Windows 11 era. So you can imagine this IP address is a single host.
+
+00:16:38:23 - 00:16:55:41
+Keith
+Windows 11. Somebody out there chose to install Windows 11. We all have our crosses to bear right. We know it's Brad Duncan in this case actually running malware. So it's not so bad. But to the rest of the population if you're running Windows 11, we all have our crosses to bear.
+
+00:16:55:41 - 00:17:23:52
+Keith
+So what protocols are in this PCAP? So when we query it via Zeek, DNS tops out at 89 queries. So the machine's constantly asking where things are. And that's pretty normal. We also see 86 SSL connections. So think HTTPS. And then we see 13 HTTP connections 65 connections that Zeek couldn't classify. And that's the one with the dash there.
+
+00:17:23:57 - 00:17:37:43
+Keith
+Zeek looked at these 65 connections and said in the wise words... and this is going to date me... in the wise words of detective Roger Murtaugh, I'm too old for this shiz... and didn't classify them.
+
+00:17:37:43 - 00:17:46:28
+Keith
+So those unclassified connections are of interest to me. So let's pull the Zeek logs and see what these 65 unclassified connections are.
+
+00:17:46:33 - 00:18:01:54
+Keith
+When we break them down you see that 53 hit just two IP addresses. This 194 IP address and this 89 IP address address. There's 48 on the first one and five hits on the second one.
+
+00:18:01:54 - 00:18:21:59
+Keith
+So that makes 53 out of the 65 just hit those two IP addresses. We'll see that these two these two are our C2 channels. Everything else pretty much looks like local network noise. Let's look at the next set of unclassified connections and see what they are.
+
+00:18:21:59 - 00:18:37:51
+Keith
+Based upon the PCAP, the rest are single packet connections on port 443 and there's one SSDP probe, all pretty much normal windows background traffic. Let's resolve these next.
+
+00:18:37:56 - 00:18:55:52
+Keith
+So according to the DNS log, three of those four IP addresses resolved cleanly. They turn out to be Google and Fiddler and just all things that we expect. The fourth IP address, the one that starts with 104 has no logged DNS, which is weird. We'll look it up next.
+
+00:18:55:52 - 00:19:17:44
+Keith
+Per the ip API. Look up. This 104 address is Microsoft Azure. It's probably Windows Update or some type of telemetry that Windows boxes just generally do on the internet. So pretty much all benign. Carry on. Nothing to see here.
+
+00:19:17:49 - 00:19:45:46
+Keith
+So who are our top talkers on the network? The Zeek logs say 10.5.22.1 with 88 connections. And that's our gateway. So that's expected. Not a big deal. Right behind it is this 194 address that we were talking about earlier with 48 connections, 48 connections in 24 minutes to a single IP address. That's suspicious. Spoiler alert. That's the NetSupport RAT C2.
+
+00:19:45:48 - 00:19:49:37
+Keith
+Okay, I'm not going to keep you hanging. We're going to prove that in a moment, though.
+
+00:19:49:37 - 00:20:09:41
+Keith
+The rest were Google, Akamai, Microsoft. Normal background type of noise. But this 89 the IP address that starts with 89 has five connections. That's also suspicious. And spoiler alert again, that's the unidentified RAT C2. And I'll show you that in a minute too.
+
+00:20:09:41 - 00:20:30:02
+Keith
+Let's confirm the benign IPS first. Geolocation on all Google, Akamai, Microsoft IPs all is expected, you see there. But the 89 IP address, the the IP address that starts with 89 has five connections. And the IP address that starts with 194 that has 48 connections.
+
+00:20:30:16 - 00:20:42:16
+Keith
+We don't see any Zeek classifications for them. So let's assume they're not benign. And let's look deeper and let's see what Zeek can't figure out about these these connections.
+
+00:20:42:16 - 00:20:45:34
+Keith
+So we're going to take a look at those two IP addresses that are suspicious.
+
+00:20:45:37 - 00:21:07:03
+Keith
+And per the Zeek SSL logs we see when we try to find any information out about those IP addresses... there's there's no rows. So there was no SSL traffic produced by those IP addresses, even though they appear to have traffic on port 443. That's unusual.
+
+00:21:07:08 - 00:21:21:06
+Keith
+Traffic on port 443 should be TLS, but neither of them show up in the SSL log. So these two IPs are from our unclassified table. Let's check what service Zeek assigned to them.
+
+00:21:21:06 - 00:21:45:25
+Keith
+So now if we pull the services that Zeek assigned to them, you see the only value that comes back is null. So Zeek just didn't know what any of these connections were and couldn't say it was something like SSL. Couldn't say it was anything like HTTPS, just nothing. So traffic on port 443 with no TLS handshake. It's some kind of raw TCP.
+
+00:21:45:30 - 00:21:50:47
+Keith
+It's kind of like putting a fake mustache on a bank robber and then calling that a disguise.
+
+00:21:50:47 - 00:21:57:18
+Keith
+As the PCAP confirms, the hosts are just sending raw bytes.
+
+00:21:57:23 - 00:22:08:30
+Keith
+Running raw TCP on 443 is the network equivalent of walking through airport security in a hockey mask, and nobody stopping you because your boarding pass simply says first class.
+
+00:22:08:30 - 00:22:15:37
+Keith
+Per the Zeek logs, we confirm raw TCP 443 no TLS. Now who owns them?
+
+00:22:15:37 - 00:22:24:38
+Keith
+This 194 address per whois RIPE registry is says it's part of MivoCloud in Moldova.
+
+00:22:24:38 - 00:22:38:55
+Keith
+Smaller provider, not a major cloud platform like AWS. Now smaller regional ISPs tend to, let's say, look the other way when questionable traffic shows up. So this is probably good for the attacker’s C2.
+
+00:22:38:55 - 00:22:52:41
+Keith
+If we use IP-api.com, it also says Moldova with MivoCloud. And again, MivoCloud is not a household name. MivoCloud sounds like a service you pay for in cash and you just don't mention at dinner parties.
+
+00:22:52:41 - 00:23:25:30
+Keith
+All right. So per whois and GEOIP lookups, the second IP that starts with 89 is registered in the Netherlands. There is no domain or SSL server name. This is just a raw TCP C2 that we see flagged earlier in that SSL check. Now earlier I was talking about this FZCO and figuring out that as part of UAE, FZCO stands for Free Zone Company, and a little bit of online research will tell you that that leads back to being a UAE business structure.
+
+00:23:25:35 - 00:23:31:28
+Keith
+So you can think servers in Amsterdam, but the company is registered in UAE, so it's two different jurisdictions.
+
+00:23:31:28 - 00:23:38:28
+Keith
+The attacker put more thought into jurisdictional evasion than most companies put into their disaster recovery plan.
+
+00:23:38:28 - 00:23:54:54
+Keith
+If we dig a little further, per the RIPE whois records, the ASN registration confirms servers tech fczo registered in UAE, UAE company Dutch server. The attackers’ shell game would make a tax accountant blush.
+
+00:23:54:54 - 00:24:13:01
+Keith
+Per the Zeek logs, the first query happens at 4 p.m. and it's for Thunder Planet Hub dot top. And this is Smartape’s redirect domain. Then we see a bunch of Windows noise. We see things like Gstatic, Windows Update telemetry, Microsoft CDN.
+
+00:24:13:01 - 00:24:34:58
+Keith
+But then we see Northern Bridge works and this ends up being the payload server. We also see geo dot NetSupport software dot com which is the NetSupport geolocation check. So the first two is SmartApe’s infrastructure. The third is the RAT checking in where it is the NetSupport site.
+
+00:24:35:03 - 00:24:39:18
+Keith
+Even malware wants to know what time zone it's in before committing to its relationship.
+
+00:24:39:18 - 00:24:51:58
+Keith
+Per the DNS and lookups. Thunder Planet Hub dot top goes to this five IP address, and that's Hetzner. The company name is Hetzner and it's in Oregon.
+
+00:24:51:58 - 00:25:02:31
+Keith
+The northern bridge works is also a five address same data center same ASN. It's a German provider US infrastructure.
+
+00:25:02:31 - 00:25:08:29
+Keith
+A German US infrastructure and an attacked California health care site.
+
+00:25:08:29 - 00:25:15:24
+Keith
+The attackers globetrotted for the C2 nodes, but their redirect infrastructure is basically two deaths at a WeWork.
+
+00:25:15:24 - 00:25:26:09
+Keith
+Who is and GEOIP Hetzner online in Germany, geolocation in Oregon, same ASN, same city consecutive IP addresses.
+
+00:25:26:14 - 00:25:37:20
+Keith
+So same same subnet, consecutive IPs... for all that work that they put into it... you would think they couldn’t spring for a second provider?
+
+00:25:37:20 - 00:25:47:05
+Keith
+Per Brad Duncan's analysis. How does this start? The victim visits nahnhoa.org, a federally qualified health care center in Garden Grove, California.
+
+00:25:47:10 - 00:26:07:20
+Keith
+It's a nonprofit community clinic, the kind of place that should not be on the front lines of cyber crime. The PCAP does not contain this traffic. No DNS query for this domain. No TCP connection, no SSL server name. The data simply is not there. And that's fine
+
+00:26:07:20 - 00:26:12:58
+Keith
+because we have the step files from Brad's analysis to tell us exactly what happened.
+
+00:26:12:58 - 00:26:18:56
+Keith
+Apparently the PCAP started after the fun already began. It's like walking into the movie ten minutes late.
+
+00:26:18:56 - 00:26:22:13
+Keith
+All right, so we're going to go to the step files to fill in the gaps.
+
+00:26:22:13 - 00:26:31:52
+Keith
+It looks like the PCAP capture window started after this traffic happened. Let's also check the SSL log and the conn log to see if there's any trace of this website.
+
+00:26:31:52 - 00:26:36:07
+Keith
+Same story as a DNS check. There's no SSL connection to this domain.
+
+00:26:36:07 - 00:26:50:11
+Keith
+No TLS handshake, no server name. The victim already had the page loaded by the time this PCAP was captured. So two down: the DNS and SSL. Let's check. Let's just check the IP address and see if that shows up.
+
+00:26:50:11 - 00:27:14:48
+Keith
+And now you can see here we pulled the current IP address and we looked for that IP in our Zeek logs. And so we checked every angle, we checked DNS, we checked the SSL server name or checking conn log for the domain’s IP. Nothing. No trace of this clinic in this PCAP. So this PCAP capture window started after the clinic's website had already been loaded.
+
+00:27:14:53 - 00:27:15:14
+Keith
+Brad
+
+00:27:15:17 - 00:27:40:12
+Keith
+Duncan's analysis package includes the step files, which is the raw HTTP captures from the victim's browser, captured by Fiddler as a TLS intercepting proxy. And you're going to see there if you download the zip files that are available, there's step one through step seven, and then each step has its name inside that file name that I'm not going to read here because it's just way too long.
+
+00:27:40:17 - 00:27:44:25
+Keith
+So let's crack open step one and see how this mess started.
+
+00:27:44:25 - 00:27:53:04
+Keith
+So per Brad Duncan's files, the request came from Google as the referrer. The user is running Chrome 148 on Windows 11.
+
+00:27:53:04 - 00:28:15:20
+Keith
+So I had to research this myself and go down this rabbit hole. If you look at the user agent field, it still says windows NT ten. Now Microsoft never updated this string. So it's going to show up as Windows 10, even though everything else that we're seeing says it's Windows 11. Just wanted to point that out in case you wonder why the data looks different.
+
+00:28:15:25 - 00:28:32:01
+Keith
+The site responds with 72 kilobyte WordPress page. And if you look at it, there's Elementor, Yoast SEO, and the whole plugin buffet. So in WordPress terms, that means please come hack me, I have at least three unpatched plugins.
+
+00:28:32:01 - 00:28:56:10
+Keith
+Per the step file. Someone injected this script tag that you see on your screen inside the clinic's website. Was it a compromised plugin? Was it stolen credentials? Was it a vulnerable theme? We don't know. We just know that it's this tag. This content is within the content being served from that clinic’s website now.
+
+00:28:56:15 - 00:29:10:32
+Keith
+Every visitor to that clinic now silently loads malware infrastructure and doesn't even know it. If you're a clinic and your bounce rate just spiked, it's probably not your page speed. It's maybe the malware redirect going on.
+
+00:29:10:32 - 00:29:36:48
+Keith
+So, per Brad's step files, this is not an HTTPS redirect. There's no 301 or 302 result code, and there's no location header that you'd expect in the normal HTTP redirect. Instead, it's happening inside JavaScript and it's creating a script tag element and appending them to the DOM. Each hop looks like a normal third party script loading.
+
+00:29:36:48 - 00:29:56:00
+Keith
+And this is what's called a JavaScript DOM injection chain. It's a web equivalent of a con artist who keeps changing hats and hoping you don't notice. It's designed to make each step look innocuous while making analysis very painful. So let's walk through it. Hop by hop. Why not?
+
+00:29:56:00 - 00:30:13:16
+Keith
+In our hop one you see here, the URL ends with the words beta cookie. So as in we're still testing this cookie. It might give you a rat. Please bear with us. And nothing says trustworthy like a script named after a half finished browser feature.
+
+00:30:13:21 - 00:30:29:33
+Keith
+So all three hops go to Thunder Planet Hub dot top over HTTPS and Zeek will only see one connection, and the actual request paths themselves are invisible because they're encrypted inside this connection.
+
+00:30:29:38 - 00:30:44:56
+Keith
+Lucky for us, Brad Duncan captured these with Fiddler using a TLS. Well, Fiddler is as a TLS intercepting proxy, and he was able to decrypt the HTTP and save it to step files. And shout out to Brad for doing the hard work for us.
+
+00:30:44:56 - 00:31:13:19
+Keith
+Per the step files, the server served just over 4000 bytes of JavaScript. So let's peek. Inside. We take a look at the response body. And the response body is scrambled string array. And it looks like a base64 decoder. And there's a decoder function in there that decodes tokens into what ends up being hop number two. And it's the URL of hop number two.
+
+00:31:13:24 - 00:31:20:43
+Keith
+So a custom 64 base decoder in 2026. At this point it's not even obfuscation, it's just tradition.
+
+00:31:20:43 - 00:31:41:48
+Keith
+So according to the step files, the beta cookie JS decoded to this new IRL that ends in rate dash hook, and then a random looking string of about eight characters. It's only job is to write a new script element, point it to that URL, append the DOM, and that's it.
+
+00:31:41:48 - 00:32:10:48
+Keith
+According to Brad Duncan’s step files, once you decode and get this script back, it's only three lines of JavaScript. Clean, no obfuscation. It creates a script element that sets the source to hop number three’s URL and appends the DOM. This is the redirect, but it's not an HTTP redirect, it's a DOM operation. So the address bar to the victim still shows this health clinic.
+
+00:32:10:48 - 00:32:20:22
+Keith
+And that's it. It's just three lines of code. This is the browser equivalent of a con artist passing the ball in the shell game.
+
+00:32:20:22 - 00:32:46:07
+Keith
+Joining conn dot log with SSL dot log on the UID lets us query by domain name instead of hard coding the IP address in our SQL And this is where DuckDB and Yacin’s extension really shine. Because you can take two different text logs and join them together using SQL. So you can see in the slide that this TLS session carried all three hops.
+
+00:32:46:17 - 00:33:02:58
+Keith
+The step files for Brad's decrypted TLS that I went through earlier... that tells us what's inside though. And shout out to Brad for doing the hard work on that. You're the real MVP. Really appreciate it because with the PCAP alone, we wouldn't we wouldn't be able to see all the stuff that we see.
+
+00:33:02:58 - 00:33:11:28
+Keith
+Now, if we look at the step four file, we see that there's a content length of about 1.7MB.
+
+00:33:11:33 - 00:33:25:14
+Keith
+And this is the CAPTCHA Okay. And I should note that a CAPTCHA should not be the largest asset on your web page, unless your job as a CAPTCHA is to deliver RATs like we see in this case.
+
+00:33:25:14 - 00:33:48:30
+Keith
+If you take a look at the step files inside the bundle there's a react 19 application and you see react dash dom show up. You see tailwind CSS version 4.0.5 show up. It's a full production grade web framework served from a random dot top domain, all just to show a fake capture.
+
+00:33:48:35 - 00:33:58:35
+Keith
+You know someone's out there and they put built a fake capture with react 19 on the resume, and they probably set it with a straight face.
+
+00:33:58:35 - 00:34:28:34
+Keith
+So react is JavaScript framework for interactive UIs. And tailwind is the CSS utility framework for styling. And together they're a standard professional web stack. So per the published analysis, the real CAPTCHAs are around four kilobytes from a content delivery network that you usually know. This is a 1.7MB single page app, and it's only purpose is to show a fake page and hard code
+
+00:34:28:34 - 00:34:36:59
+Keith
+This is the ClickFix command that sends you to the 178 IP address, and it's baked right into the bundle.
+
+00:34:36:59 - 00:34:44:56
+Keith
+And you know your social engineering is on point when your fake page has a bigger JavaScript bundle than most production apps.
+
+00:34:45:01 - 00:34:58:48
+Keith
+199 packets from client 1271 from the server, 1.7MB transferred for capture. Most production websites have smaller bundles.
+
+00:34:58:53 - 00:35:06:35
+Keith
+That's your detection signal. 1.7MB of react from a dot top domain is not CAPTCHA it's a RAT delivery
+
+00:35:06:40 - 00:35:07:18
+Keith
+platform.
+
+00:35:07:18 - 00:35:34:19
+Keith
+So why three hops? Well, each hop presents a different analytical challenge. Hop one. IFAs skated information in there. So you have to run this decoder to find the next URL in hop two. It's clean code, but there's no clues about what it actually does. So it's also obscure. And then hop number three, the last one. That's where we get 1.7MB react app back from the server.
+
+00:35:34:19 - 00:36:11:26
+Keith
+And that like I said, the size itself is the signal. So three layers of objects designed to waste analyst time. And one of them is basically a weird flex about knowing react. The problem here is HTTPS hides everything. So Zeek sees one connection to Thunder Planet Hub tap. The SSL shows one server name only, can log shows one SSL connection, and this three hop relay is invisible without the actual decrypted TLS or step files that Brad made for us.
+
+00:36:11:31 - 00:36:33:22
+Keith
+The attackers made the chain look boring on purpose and it worked. So why react and tailwind? Because it looks legitimate, meaning it can make your capture page look legitimate. You got spinning icons, professional colors, responsive layouts, and the user thinks, oh, this is standard capture.
+
+00:36:33:22 - 00:36:54:19
+Keith
+But the button doesn't work. It displays instructions instead. And this is the web equivalent of a storefront with an open sign. But the door is locked and someone's yelling through the mail slot telling you what to do, which in this case is pasting a PowerShell malicious command inside your command shell.
+
+00:36:54:24 - 00:37:27:55
+Keith
+So according to the PCAP files, all three hops look like one single TLS session to Thunder Planet hub tap. And that's the IP address. 5.78.196.2366 SSL log one connection one server name. All of those hops are invisible. Instead of seeing three, we're seeing one. So you remember hop number one was the beta cookie JS. That was the entry point that was obfuscated in base 64.
+
+00:37:28:00 - 00:37:56:35
+Keith
+As an analyst, we had to run a decoder on there to find the second hop, which is the rate hook URL, and that sends back three lines of clean JavaScript. It depends to the DOM. It looks like a normal third party script. The address bar still shows the health clinic though, so as the user sees it as these websites are being visited, is being done in the background and you're not seeing your address bar change, which is very important.
+
+00:37:56:40 - 00:38:22:19
+Keith
+Hop number three, which ends up being that principal validator JS is a full react 19 and tailwind app. It's remember real CAPTCHAs around four kilobytes. This is the 1.7MB from a random top domain is professional looking, but the button doesn't work. Instead, the instructions to press when our and run the PowerShell that it gives
+
+00:38:22:19 - 00:38:23:33
+Keith
+you. Okay.
+
+00:38:23:33 - 00:38:27:27
+Keith
+So from the network logs it looks like one boring HTTPS connection.
+
+00:38:27:30 - 00:38:32:52
+Keith
+The attackers made their chain look boring on purpose, and it works because boring is the new malicious.
+
+00:38:32:52 - 00:38:57:23
+Keith
+Brad Duncan's analysis package., the fake CAPTCHA tells the user press WIN-R, paste this command to verify your human. WIN-R is the Windows Run dialog system level command launcher. It's like it's like command dot exe, and when this happens, there's no browser security boundary that you're used to inside of browser. There's no URL validation like you would have in a browser.
+
+00:38:57:30 - 00:39:06:36
+Keith
+No download warnings like you'd have in a browser because it's going through the windows run panel when you press WIN-R.
+
+00:39:06:36 - 00:39:22:24
+Keith
+So do you know this? If it's not obvious, legitimate CAPTCHAs run entirely in browser. So if a website asks you to leave your browser to prove your human, it's not capture. It's a con. It's designed to sidestep your browser protections.
+
+00:39:22:24 - 00:39:32:36
+Keith
+There's no file download prompt, no downloads, no in-memory anything. It's just PowerShell that you put into the run dialog box.
+
+00:39:32:36 - 00:39:36:02
+Keith
+There's no smart screen URL scan.
+
+00:39:36:02 - 00:39:59:02
+Keith
+There's no mark of the web. Nothing touches a disk as a downloadable file. Now, as a caveat, Windows Defender portions of Windows Defender can still scan in memory, but the attacker is probably betting AV doesn't have that signature or the user disabled it. Spoiler alert for this case, they're right because it does run.
+
+00:39:59:02 - 00:40:25:01
+Keith
+Breaking down the ClickFix PowerShell command from the PCAP, you got the PowerShell dash C which says launch PowerShell with inline command. The irm stands for invoke Rest method, which downloads some content, and then the iex is invoke expression, which executes whatever it gets. And then there's other information there about like use basic parsing. And that just gives you a raw content back with no HTML.
+
+00:40:25:13 - 00:40:45:51
+Keith
+And nothing says legitimate system utility like piping a remote URL into a command executor. It's the PowerShell equivalent of “trust me, bro”. One liner downloads from 178 address and executes immediately. The user who just wants to get past this roadblock does it.
+
+00:40:45:55 - 00:41:01:40
+Keith
+It's a digital equivalent of the free candy van without windows, and it works because nobody reads the dialog boxes. And if UAC warnings were people, they probably have a restraining order against every Windows user by now.
+
+00:41:01:40 - 00:41:14:53
+Keith
+HTTP log - there were two HTTP requests, one to this 178 address and one to this five address. The second IP comes from the stage or script that we'll just will extract and show you next.
+
+00:41:14:59 - 00:41:45:37
+Keith
+But the first server returns a PowerShell script that spawns a hidden child. That hidden child that his second IP address, the five IP address. And you can see I annotated it in the table here for you on the right. So you have two stagers. The initial ClickFix payload and then you have the child process it launches. Zeek's HTTP log shows method, host, URI, status code, but not the response body by default.
+
+00:41:45:46 - 00:41:52:18
+Keith
+So to see what the server sent back extract, we can extract both from the PCAP with tshark.
+
+00:41:52:18 - 00:42:01:20
+Keith
+So here we have extracted it from the PCAP with tshark. This is the server at 178 that returns the PowerShell stager that we talked about earlier.
+
+00:42:01:20 - 00:42:20:48
+Keith
+Now you take a look at the script, and the script downloads and executes from 5.161.235.47. That's the second stage. So the outer portion of this script wraps it in a process object, which the next slide is going to show us the details.
+
+00:42:20:53 - 00:42:23:17
+Keith
+This is like malware Russian nesting dolls.
+
+00:42:23:17 - 00:42:47:51
+Keith
+So looking at the rest of this script, we see it creates a hidden PowerShell child process with the things like window style hidden, create no window true, UseShellExecute false and then it calls start. So think no window, no tray icon, no sign anything happened. A process running in the dark like most IT departments during a breach.
+
+00:42:47:51 - 00:43:15:19
+Keith
+Breaking down the command used against the published PCAP. The dash r reads the PCAP. The dash capital Y gives you a filter that you can filter out just the responses from this server. The dash capital T says that we want fields and dash E says which fields? And in this case we're only going to send back the HTTP response body, which is the part we are missing in Zeek in the in that log.
+
+00:43:15:24 - 00:43:20:55
+Keith
+Then we're going to pipe it through xxd and that's going to convert the hex dump back to readable text.
+
+00:43:20:59 - 00:43:52:41
+Keith
+Per the GEOIP lookups, this 178 address and this five address are both from Hetzner and they're located in Ashburn, Virginia. They're both in the same ASN number of this 213230. Now recall that the redirect the Thunder Planet hub dot top and the payload which was the northern bridge works dot com, they're both this ASN 212312. And if you look at them and compare them... the same parent company but they're different subnets.
+
+00:43:52:41 - 00:43:52:59
+Keith
+So
+
+00:43:53:12 - 00:44:00:34
+Keith
+the attackers spread across subnets like they're diversifying a stock portfolio. Gotta hedge against takedowns!
+
+00:44:00:34 - 00:44:08:07
+Keith
+A quick recap. We extract a stage or one and we saw it. This diagram shows how it fits into the full chain.
+
+00:44:08:11 - 00:44:20:50
+Keith
+All right. So that stager one is from... that's the PowerShell one liner. That part's done. So now we're getting into stage two. And then we'll eventually after stage two talk about the RAT.
+
+00:44:20:50 - 00:44:25:06
+Keith
+So now we're going to move to extracting stage two from the PCAP okay.
+
+00:44:25:06 - 00:44:50:17
+Keith
+When the first stager launched that hidden PowerShell child it hits this five address. And so what was served back when that five address was visited. Let's extract the response the same way with tshark that we did earlier with the other connection to get the stage one. So this returns a PowerShell script with the payload URL at the top.
+
+00:44:50:17 - 00:45:11:41
+Keith
+And you can see Northern Bridge Works dot com and in the comments it calls itself System Maintenance Utility because nothing says legit like lying in your own comments. And we extracted the first stager to find the second server then extracted that to find the payload domain. This is like malware inception.
+
+00:45:11:41 - 00:45:25:15
+Keith
+So this is the next part of the script. And you can see this is the zip extraction part. It downloads the zip file from Northern Bridge Works. It extracts it and then it deletes the zip covering its own tracks.
+
+00:45:25:15 - 00:45:42:16
+Keith
+And this is the last part of the script. You can see it launches can knmanager.exe with windows style hidden. So no windows no tray icons, the only thing missing is the malware lighting a cigarette, walking away from an explosion in slow motion.
+
+00:45:42:21 - 00:46:04:23
+Keith
+Per the DNS log, northern bridge works goes to the IP address 5.78.196.1 80. That's the download server from the PowerShell script. Now we look up the connection by joining the SSL server name, just like we did for Thunder Planet Hub dot top. Let's check the connection log to see how much data moved.
+
+00:46:04:30 - 00:46:13:04
+Keith
+Spoiler alert A lot. Nobody's downloading a system maintenance utility that's 34MB in reality.
+
+00:46:13:04 - 00:46:29:24
+Keith
+Per the conn log, 34MB were sent from the server to the client, but no file name because it's encrypted HTTPS. Brad's analysis package decrypts it as rate limit dot zip, and it's over 33MB.
+
+00:46:29:24 - 00:46:57:21
+Keith
+The download took four minutes, so think about that 34MB in four minutes. Some of us are still traumatized by dial up, but the attacker doesn't care. The user already committed to the paste random PowerShell from the internet lifestyle, and four minutes of watching a spinner and wondering if your computer froze. Plot twist. It didn't freeze, it just got a roommate.
+
+00:46:57:21 - 00:47:11:57
+Keith
+We joined the log with the SSL log to get the northern Bridge works connection by domain. We also include the 89 IP address, the unnamed C2 IP address
+
+00:47:11:57 - 00:47:19:40
+Keith
+because we confirmed it has no SSL. So using this query I'm going to show you the results on the next slide.
+
+00:47:19:40 - 00:47:31:35
+Keith
+Per the Sans Diary, the 17.8MB matches 17.2MB setup cab delivered through this RAT’s custom protocol, according to Brad Duncan.
+
+00:47:31:35 - 00:47:45:08
+Keith
+No SSL log entry, no log entry, raw TCP and 443 with custom encoding. A C2 channel designed by someone who reads security through obscurity and stopped at the third word.
+
+00:47:45:08 - 00:48:00:47
+Keith
+So here's what the first few bites of the C2 session on the wire looks like. Per the PCAP, it's just raw hex. Zeek couldn't classify that. There's no TLS handshake here, and the SANS diary confirms it's encoded and not encrypted.
+
+00:48:00:47 - 00:48:10:52
+Keith
+So assuming something is encrypted because it's on port 443, that has helped more malware campaigns than any exploit kit ever.
+
+00:48:10:52 - 00:48:19:14
+Keith
+Per the Zeek logs, there's two C2 channels running in parallel from the same victim machine RAT one, which is the unidentified rat. That's the
+
+00:48:19:14 - 00:48:28:15
+Keith
+knmanager dot exe. Its C2 has the 89 IP address. That's the one in Amsterdam that's also registered to UAE.
+
+00:48:28:15 - 00:48:40:29
+Keith
+And the second line is the second RAT. This is the NetSupport RAT which that supports a tool that is used for good purposes and bad purposes. In this case it's used for not so good purposes.
+
+00:48:40:29 - 00:49:06:26
+Keith
+The NetSupport C2 IP address is the one that starts with 194. And that's the one in Moldova with MivoCloud that we talked about earlier. And this is the one that tried 48 times. And in every attempt the server returned a reset packet actively refusing the connection. So even without payloads 48 connection attempts in 24 minutes is a behavioral signal.
+
+00:49:06:31 - 00:49:35:11
+Keith
+Also oof. Raw TCP and 443 and no TLS for both of them the same evasion technique. So port 443 usually expects HTTPS, and a custom protocol like this does hide in plain sight. Luckily, Zeek flags both of them. A service equals null, which you can look at that and say that's probably an anomaly and you can look it into it deeper, like we did in this exercise.
+
+00:49:35:11 - 00:49:59:11
+Keith
+The service equals null is itself a detection signal. So if Zeek can't figure it out neither should you ignore it. And then also remember we're talking about different jurisdictional diversity here. We're talking about Netherlands. We're talking about Moldova. We're talking about UAE. So three jurisdictions for two RATs. And at this point the attacker is just collecting passports.
+
+00:49:59:11 - 00:50:25:30
+Keith
+Per Brad Duncan's analysis. NetSupport RAT deployed to your c : and slash program data update installer directory. And it contains an executable called client 32 dot exe, and it has a config file called client 32 dot ini. And it has some DLLs and it has another supporting exe with it. Some of the file timestamps on this go as far back as 2016.
+
+00:50:25:30 - 00:50:30:38
+Keith
+So NetSupport Manager has been a legitimate remote admin tool for decades.
+
+00:50:30:38 - 00:50:41:14
+Keith
+And the attackers didn't write a new RAT for this. They just bought an used sedan and they spray painted some flames on it. So let's see what it does on the network.
+
+00:50:41:14 - 00:50:45:04
+Keith
+Do you remember that geo.netsupportsoftware.com?
+
+00:50:45:08 - 00:50:50:33
+Keith
+That was the geolocation service that we talked about earlier? Well, you can see there's actually an HTTP connection
+
+00:50:50:33 - 00:51:00:32
+Keith
+and you can see that you are right there that says slash location slash loca dot ASP. So what is happening here. The RAT checks in.
+
+00:51:00:37 - 00:51:15:49
+Keith
+It checks in where it is in the world before it even finishes connecting to the C2. And this time stamp happens at 4:05 p.m., the same second that it starts beaconing to the C2 server. So the RAT checks in where it lives before calling home.
+
+00:51:15:49 - 00:51:21:20
+Keith
+It's kind of like a kidnaper checking their area code before making that ransom call.
+
+00:51:21:20 - 00:51:42:31
+Keith
+Per the Zeek log, this 194 address the top entry from our unclassified connections table. When we look at the conn log, the malware tries repeatedly to connect. You see three SYN packets in just the first 15 seconds. It really wants to reach a server. Desperation is not a good look even for malware.
+
+00:51:42:31 - 00:51:45:04
+Keith
+There are four rows shown here.
+
+00:51:45:09 - 00:51:46:57
+Keith
+The rest are on the next slide.
+
+00:51:46:57 - 00:52:04:26
+Keith
+The pattern continues. It’s 48 attempts total. The client sends packets, gets nothing back. It's like calling your ex 48 times and they keep sending you to voicemail. So in the next slide. Let's take a TCP level analysis of what's actually happening in these connections.
+
+00:52:04:26 - 00:52:21:45
+Keith
+Per the tshark analysis of the PCAP, the server is actively refusing the connection with the reset. So there's no SYN-ACK, there's no TCP handshake, no application data. tshark confirms that there are no TCP connections with length greater than zero packets.
+
+00:52:21:45 - 00:52:25:28
+Keith
+The C2 server ghosted harder than a bad Tinder date.
+
+00:52:25:28 - 00:52:49:34
+Keith
+Brad Duncan's analysis package, the smoking gun, is this client 32 dot ini extracted from the victim's NetSupport installation. You can see in there that it's configured to this 194 IP address we've been talking about, which that's the confirmed C2 server. And you can see other things in this file such as the stealth settings of silent equals one, systray equals zero.
+
+00:52:49:36 - 00:52:57:15
+Keith
+SK mode equals one and hide when idle. So they checked every single hide me check box the software offered. The
+
+00:52:57:20 - 00:53:01:18
+Keith
+malware equivalent of a teenager sneaking back in at 3 a.m..
+
+00:53:01:18 - 00:53:14:20
+Keith
+So Corelight offers a free open source Zeek NetSupport detector. And I helped write it. So I thought, let's install it and see if this detects it in the PCAP. Spoiler alert it doesn't.
+
+00:53:14:28 - 00:53:27:12
+Keith
+Let's let's figure out why. So let's install it with zkg and rerun Zeek on the same PCAP. Now if it worked, there would be NetSupport notices in the notice dot log.
+
+00:53:27:12 - 00:53:43:48
+Keith
+And you see there is no notice that log. It didn't fire. So all that setup was for nothing. It's a cybersecurity equivalent of clicking a gourmet meal and realizing nobody's home for dinner. So why didn't it fire? The C2 server wasn't responsive.
+
+00:53:43:48 - 00:54:06:05
+Keith
+The detector matches HTTPS headers with NetSupport, or it has to have TCP payloads with this command equals poll or encd which is the encoding command. Neither of those happen. They didn't send on the wire, so the detector didn't have anything to detect. And that's why we're not seeing the notice dot log populate.
+
+00:54:06:05 - 00:54:10:29
+Keith
+The detector misses its cue like a stage actor who shows up to the wrong night.
+
+00:54:10:29 - 00:54:33:21
+Keith
+Per the Corelight detector source, here's what NetSupport dot sig looks for. And you can see those two commands. You see the command at encd and then you see the command poll. Since those didn't happen in the TCP data, it had nothing to detect. The third detection was on the HTTP header where it looks for the NetSupport string.
+
+00:54:33:21 - 00:54:40:29
+Keith
+And because there wasn't an actual full connection that didn't get sent either. So this detector never had a chance from the get go.
+
+00:54:40:29 - 00:54:47:05
+Keith
+All three signatures are useful, but only provided that the C2 server actually answers the phone.
+
+00:54:47:05 - 00:55:10:26
+Keith
+Next, I wanted to show you what a. NetSupport detection actually looks like. So I had a PCAP with NetSupport in it and I ran it on that PCAP. And you can see this notice dot log? It's pretty long. I'm scrolling to the right here. It tells you what it saw on that connection. And you can see this example had all three types that I talked about earlier. It has the
+
+00:55:10:26 - 00:55:26:07
+Keith
+NetSupport in the HTTP headers. It has the command equals poll and it has the command equals encd. And we detected all of them. We did not get this log from our PCAP that we got from Brad Duncan. I'm just showing you an example here.
+
+00:55:26:07 - 00:55:33:13
+Keith
+All right. So we're pretty much near the end. I wanted to give you the IOCs that we unearthed in this whole analysis. And
+
+00:55:33:26 - 00:55:46:38
+Keith
+the this slide in the next slide is basically a summary of our IOCs. And then I'll break them down by type in the remaining slides. And then after that we'll talk about some blue team takeaways and we'll close this out.
+
+00:55:46:43 - 00:56:10:21
+Keith
+Here is the first slide of the summary IOCs that I would be looking for. I would be looking for the health care website. We know that that's compromised. I would be looking for this Thunder Planet Hub dot top. I'd be looking for its IP address. I'd be looking for principal validator JS. I'd be looking for these other IP addresses... the 178, the five dots, all the IPs that we went through.
+
+00:56:10:26 - 00:56:12:32
+Keith
+I would be looking for the domain:
+
+00:56:12:32 - 00:56:18:06
+Keith
+The northern bridge works dot com domain that also resolves to the five IP address.
+
+00:56:18:06 - 00:56:40:17
+Keith
+And then I'll be looking for the payloads and the persistence themselves. So I'd be looking for things like knmanager dot exe on hosts. I'd be looking for the 89 IP address going across the network. I'd be looking for client 32 dot exe because that was used, and then that reached out to the 194 IP address. So I'd be looking for that on my network.
+
+00:56:40:22 - 00:56:56:08
+Keith
+And then I'd be looking for things on my host like that install directory of the update installer. And then I'd be looking for the persistence mechanism in the registry under which will run that can knmanager dot exe, which was one of the RATs.
+
+00:56:56:08 - 00:57:21:20
+Keith
+All right. So if we look at just the domains here's the list of domains. And I tried to give you a cheat sheet of what IP address they associate with. And then what part of this whole attack chain they associated with. So you'll see like SmartApeSG redirect and payload hosting and compromise entry vector. So I try to give you the where it showed up in our analysis inside this table.
+
+00:57:21:20 - 00:57:34:46
+Keith
+And again I did the same thing. Or I tried to do the same thing for the IP addresses. And I tried to say what IP address it was, what role it played in this whole incident, and then who owned it, which in this case it was all the Hetzner online.
+
+00:57:34:46 - 00:57:46:22
+Keith
+Here's some more IP addresses and then these are the ones that go back to the Netherlands. And to Moldova. And I gave you some information and their ASN in case you want to look at more information.
+
+00:57:46:22 - 00:58:00:00
+Keith
+And then I have all the hashes and I can't say I generated all this stuff. A lot of this stuff came from Brad Duncan's analysis, but I just wanted to point out what the IOC's were in case you wanted to go look for these things across your logs.
+
+00:58:00:00 - 00:58:16:24
+Keith
+Here's some more file paths. You got the knmanager, you got the update install, you got the registry, and so forth. I talked about these a little earlier, but I just wanted to show you I have in the slides, should you choose to go navigate them... I've got their own slides for this if you need it.
+
+00:58:16:24 - 00:58:31:14
+Keith
+Okay. So here are the sources. If you go to my slides these are clickable. You click in there and you can actually go to all these websites where I got all the source information in order to make this very lengthy but hopefully entertaining video for you.
+
+00:58:31:14 - 00:58:38:14
+Keith
+So let's finish off with the blue team takeaways okay. In this case,
+
+00:58:38:19 - 00:59:19:32
+Keith
+this PCAP showed us that the infection chain was noisy as hell. Most of our noise was invisible to our tools, so that was unfortunate. In the case of just, you know, just looking at the network, one of the things that you want to look for that should stand out like a sore thumb is looking for port 443 and non traffic because it's either benign stuff, trying to get through a firewall by riding on port 443 or it's probably an attacker not running TLS, but running some kind of custom protocol like we saw in this particular case.
+
+00:59:19:37 - 00:59:45:56
+Keith
+We saw in this case that there were 48 connections that were unclassified, that were not SSL and not HTTP. So any connection that's on 443 that Zeek can't classify is worth a second look, a conn log with service equals null on port 443 is your canary. But don't be surprised when your canary is dead. Okay. So look for 443...
+
+00:59:45:59 - 00:59:51:40
+Keith
+...that isn't TLS and that will probably be useful traffic for you.
+
+00:59:51:40 - 01:00:36:56
+Keith
+Blue team takeaway number two, 1.7MB from a top domain is not CAPTCHA. Normal CAPTCHA, according to the analysis that I read, was around four kilobytes from known CDNs. They typically don't ship these big react 19 applications. They don't typically include tailwind CSS, and they don't typically range in the size of 1.7MB. If you see a multi megabyte JavaScript bundle from a random TLD like a dot top, a dot xyz, or dot shop, the bundle size itself is the signal. Nobody ships react 19 for just a CAPTCHA page.
+
+01:00:37:00 - 01:00:41:03
+Keith
+They only do that if they're shipping it for the RAT that comes after.
+
+01:00:41:03 - 01:01:19:17
+Keith
+Per the step files, the three hop DOM injection chain is invisible to network monitors, so you don't have your usual HTTP redirects. You don't have your usual location headers. No 301 302 codes that you could be looking for. Each hop happens in the document inside these script elements, and it looks like normal third party script loading. The only way to catch it is client side monitoring or TLS decryption, like you saw Brad do here with the Fiddler app, or apparently a detailed step file from someone who's already done the decryption for us, like Brad did.
+
+01:01:19:17 - 01:01:49:57
+Keith
+Takeaway number four. Per this PCAP, ClickFix is the new phishing okay? Tricking users into paste executing PowerShell is a generational leap over credential phishing. Fake CAPTCHA didn't steal a password, it got code execution. User education. At this point, nobody will ever ask you to press WIN-R and paste a command in order to prove you're a human being.
+
+01:01:49:57 - 01:01:57:21
+Keith
+Ever. If a website asks is either a scam or the worst capture designer in history.
+
+01:01:57:21 - 01:02:36:00
+Keith
+Blue Team Takeaway number five. Based on this infection chain, WordPress health care sites are a recurring initial access vector. This is not the first time that I've seen this that a health care website runs WordPress and gets popped like this. A website with Elementor and Yost SEO is not a hardened target. If you run WordPress site, especially in health care, education, or the local government audit your plugins, enable auto updates, rotate your admin credentials, monitor for unauthorized script injections... or don't.
+
+01:02:36:05 - 01:02:41:19
+Keith
+And then you're going to become my next slide deck.
+
+01:02:41:24 - 01:03:12:31
+Keith
+Based on everything a Brad Duncan's analysis and the PCAP SmartApeSG’s playbook isn't sophisticated. It's find a WordPress site that's vulnerable, inject script, show fake CAPTCHA, and wait. The sophistication is making each step look like something else. Compromised WordPress sites become the watering holes. CAPTCHA has become 1.7MB React apps. TCP on four four three becomes C2. It's not a bug, it's just rebranding.
+
+01:03:12:36 - 01:03:28:58
+Keith
+Trust but verify. Don't trust port 443, don't trust captchas to ask you to run code. And for the love of God, patch your WordPress plugins or I swear I will make this exact same presentation again next month with a different domain.
+
+01:03:28:58 - 01:03:48:45
+Keith
+And with that, I hope you enjoyed this video. I know it was long winded, but that was kind of the point was to get into the details, and I hope I gave you enough details that you'll learn something about this attack. If you found this video useful, please subscribe, like and share. That helps me so much and I hope to see you next time.
+

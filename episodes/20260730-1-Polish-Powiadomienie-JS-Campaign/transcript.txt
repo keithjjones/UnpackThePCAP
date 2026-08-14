@@ -1,0 +1,568 @@
+00:00:00:00 - 00:00:15:21
+Keith
+Welcome to Unpack the PCAP. I'm Keith, let's open up another traffic capture. So this one, it's date is June 15th, 2026. And the title of this one is Polish. I'm going to try and pronounce
+
+00:00:15:25 - 00:00:30:39
+Keith
+it Powidomienie JavaScript campaign credential theft via FTP. So Powidomienie means notification in Polish, but this email ain't delivering good news.
+
+00:00:30:44 - 00:00:43:54
+Keith
+The only thing this email is delivering is bad decisions and stolen credentials. In Poland, notification apparently means I'm about to steal all your Firefox passwords. Just a slight cultural translation issue.
+
+00:00:43:59 - 00:00:53:54
+Keith
+So this is the link. I registered a domain. UnpackThePCAP.com and you can go here., and you can get all the slides and everything that I talk about in these videos.
+
+00:00:53:57 - 00:01:14:59
+Keith
+Before we dive in, I need to be clear about where this data comes from. All data here is from publicly available sources. It's published by ANY.RUN in their public sandbox. We also downloaded the malware sample itself from any.run. And we do a little bit of an analysis and show you that. The analysis report is at the link above in the slides.
+
+00:01:14:59 - 00:01:31:01
+Keith
+And this is why you want to go to that website, because all these slides that you get to, they're all clickable. And you can get all the links and everything that I talk about. And in here every domain, IP hash and command is going to be backed by the PCAP itself. You can download it from any.run just like I did.
+
+00:01:31:09 - 00:01:49:21
+Keith
+And the malware sample. We're going to do some simple static analysis. You know, just some file, MD5, strings, and things like that against it. The Zeek logs we generate by running Zeek against this PCAP. It's pretty much that simple. Packet level analysis will do with tcpdump,
+
+00:01:49:23 - 00:01:52:46
+Keith
+and nothing here is going to be made up. Nothing speculative.
+
+00:01:52:51 - 00:01:57:32
+Keith
+If I wanted to write fiction, I charge more for it and I get fewer virus notifications.
+
+00:01:57:37 - 00:02:14:35
+Keith
+All right. Walking through the infection chain as we'll see in the PCAP. Number one the JavaScript file arrives likely via email. So it's something out of band not in this PCAP. So if you look at this PCAP you won't see how the JavaScript gets there. You just have to assume that it's there.
+
+00:02:14:39 - 00:02:25:20
+Keith
+Stage one. Once the JavaScript runs, the malware checks if it's in the sandbox via ip-api.com, and then stage two it resolves ftp
+
+00:02:25:25 - 00:02:35:41
+Keith
+dot telewate-pe.com to find at C2 server. Stage three it exfiltrate stolen data via FTP.
+
+00:02:35:46 - 00:02:44:24
+Keith
+It's a simple chain devastating outcome, like stepping on a single Lego in the dark. Simple and design devastating and execution.
+
+00:02:44:29 - 00:02:58:13
+Keith
+We downloaded the sample from any.run and did some cursory analysis. Just file type and hash to see what we're dealing with, and it tells you it's Unicode text. 3.6MB on a single line.
+
+00:02:58:18 - 00:03:08:01
+Keith
+Typical for heavily advocated JavaScript. It's MD5. You can see right there on the slide. I'm not going to read it for you, but it matches the any dot run report.
+
+00:03:08:06 - 00:03:32:05
+Keith
+Okay, so a dropper is a small piece of malware whose only job is to download or write or unpack a larger payload onto the system. It drops the real malware and itself often disappears afterwards. So strings analysis is one of the fastest way we can understand what a malware does without running it, and even heavily obfuscated code often used
+
+00:03:32:15 - 00:03:47:24
+Keith
+or it leaves readable strings behind like ActiveX program IDs, file paths, and command lines. So a quick strings command can sometimes tell you if it's a dropper, a key logger, a rat, or something else.
+
+00:03:47:29 - 00:04:02:12
+Keith
+The next slide breaks down exactly what each of those strings tells us. Why wscript.shell, FileSystemObject, Base64 and schtask together revealed a JavaScript dropper with persistence.
+
+00:04:02:17 - 00:04:09:17
+Keith
+Normally, when software advertises its capabilities, it's called a feature list. What malware does it? It's called an IOC list.
+
+00:04:09:22 - 00:04:20:17
+Keith
+Let's break down what those strings tell us about the malware capabilities. Wscript.shell can run commands via the cmd.exe. So we're talking about windows here.
+
+00:04:20:22 - 00:04:42:34
+Keith
+Scripting dot file system object plus save to file can read and write files. bin.base64 has embedded encoded data to decode at runtime. schtasks, it creates a scheduled task and we know that the interval is 15 minutes.
+
+00:04:42:38 - 00:04:55:24
+Keith
+And we see this a file system directory C colon slash user slash public slash libraries. And it's a drop directory per the. any.run analysis. If you just go check there it actually shows you.
+
+00:04:55:29 - 00:05:02:50
+Keith
+The strings of the malware shopping list: Duct tape, rope, shovel. You know it's not for a DIY project.
+
+00:05:02:55 - 00:05:25:12
+Keith
+Bottom line, these strings tell us that the JavaScript can execute commands, read write files, and create persistence. The exact behavior is only visible at runtime. We can't see the C2 URLs, FTP paths, or credentials in plain text. They're in the 150 plus obfuscated five character array elements decoded only at runtime.
+
+00:05:25:16 - 00:05:40:35
+Keith
+The dropped file name that starts with DWW here and ends in .ttf. Looks like random characters. The attackers name their malware like a cat that walked across the keyboard, but somehow it still works better than most enterprise software.
+
+00:05:40:40 - 00:05:48:06
+Keith
+Per the any of that run analysis, it’s actually an executable, not a font file. That's what TTF stands for, which is true
+
+00:05:48:09 - 00:06:06:27
+Keith
+type font. So this is not a font, it's actually an executable file. The drop location was that C users slash public slash libraries and it's just a common hidden in plain sight directory. It just tries to blend in with everything else so investigators don't find it.
+
+00:06:06:32 - 00:06:16:20
+Keith
+The credential theft visible in this PCAP is consistent with the TTF payload being a credential harvester that phones home via FTP.
+
+00:06:16:25 - 00:06:21:46
+Keith
+And I know that was a long winded sentence, but I'm going to break all that down for you in the upcoming slides.
+
+00:06:21:51 - 00:06:36:51
+Keith
+Now let's switch from the malware sample to the PCAP itself. Here's what Zeek tells us about this. Traffic capture. 309kB, roughly two minutes of traffic, and we'll confirm the duration in a moment. I'll show you the actual command for it.
+
+00:06:36:56 - 00:06:54:31
+Keith
+One infected workstation DESKTOP-JGLLJLD at 192.168.100.12. And we'll show you how we know all this in a moment. Per the exfiltrated payload, this is a Windows 10 Pro machine.
+
+00:06:54:36 - 00:07:03:24
+Keith
+Now remember we're getting this from any.run. So this is this victim machine is actually one of the sandbox machines. It's not an actual real user machine.
+
+00:07:03:29 - 00:07:27:17
+Keith
+All right. So the first step to look at this PCAP is to run Zeek against the PCAP to generate structured logs. And the dash capital C just means ignore invalid checksums which is a common in capture traffic. It's one of those things that I always put on there, because I don't want to see the errors, and the dash R is read from a PCAP instead of from a live network card.
+
+00:07:27:22 - 00:07:47:55
+Keith
+Now the log colon colon default underscore log dir equals output. Lets me take all my Zeek logs and that dump them in the current directory, but actually put them in a different directory called output. Zeek produces separate log files for each protocol at detects. So it's got a conn.log, which gives you an overview of all the connections.
+
+00:07:48:10 - 00:08:08:16
+Keith
+You have a DNS.log, which is all the DNS queries and responses. You have http.log, which is HTTP requests and responses, and ftp.log, which has all the FTP commands. And then you have an SSL.log which is the TLS handshake, metadata and all that kind of stuff.
+
+00:08:08:21 - 00:08:16:14
+Keith
+Running on a PCAP is like handing a chef a pile of groceries and getting back a plated meal, instead of throwing everything in a blender and calling it a dinner.
+
+00:08:16:19 - 00:08:37:43
+Keith
+Before we run queries, we need to install the DuckDB Zeek extension written by Yacin Nadji. This extension provides the read_zeek function that reads in the Zeek TSV logs directly and makes your life so much easier. The Inet extension handles IP addresses as column types natively inside DuckDB.
+
+00:08:37:48 - 00:08:47:00
+Keith
+Duck DB fits in the Goldilocks zone of security querying. Lighter than a full database, heavier than grep and just right for asking what the hell happened here?
+
+00:08:47:08 - 00:09:18:01
+Keith
+DuckDB calculates the capture duration directly from the conn.log timestamps. The first connection is at 2:45:38 and the last is at 2:47:40. So about two minutes. The actual malicious activity, the IP-API check to the FTP upload of the credentials takes about two seconds, so we can narrow it down by correlating the HTTP request timestamp to ip-API with the ftp upload timestamp
+
+00:09:18:01 - 00:09:22:51
+Keith
+in the PCAP. We'll see the timeline on the traffic overview slide later.
+
+00:09:22:55 - 00:09:28:12
+Keith
+Two seconds on the wire and the attacker already have more impact than most 30 minute meetings.
+
+00:09:28:17 - 00:09:29:29
+Keith
+From conn.log,
+
+00:09:29:29 - 00:09:37:48
+Keith
+only one unique IPv4 source address exists. The rest are either IPv6 link local or they're unspecified.
+
+00:09:37:53 - 00:09:41:54
+Keith
+The victim IP stands out because it's actually trying to connect to things.
+
+00:09:41:59 - 00:09:48:27
+Keith
+The link local addresses are just networking socially. Lots of handshakes, no real conversations.
+
+00:09:48:31 - 00:10:01:15
+Keith
+Why this slide matters. We now know the victim's machine is a windows host named DESKTOP- JGLLJLD. This is the malware sandbox desktop that executed the JavaScript file.
+
+00:10:01:20 - 00:10:12:16
+Keith
+The desktop dash prefix is the default windows naming scheme used since Windows 8, and this will match the OS fingerprint that we'll see exfiltrated later on.
+
+00:10:12:20 - 00:10:38:18
+Keith
+How do we know that this is NetBIOS? The UDP port is 137 and this is assigned the NetBIOS name service port. Zeek logs these as the type Nimloc in DNS.log. The ID underscore resp underscore h column shows 192.168.100.255, the broadcast address. NetBIOS nodes announce to the entire subnet.
+
+00:10:38:22 - 00:10:45:33
+Keith
+The uppercase hostname is also characteristic of NetBIOS names, 16 characters of uppercase.
+
+00:10:45:38 - 00:10:51:52
+Keith
+So basically the machine was wearing a name tag. Recon is usually harder than this.
+
+00:10:51:57 - 00:11:15:21
+Keith
+Let's run the protocol breakdown and see what services show up. We’ll annotate what each service means on the next slide, but check that out. FTP. FTP in 2026 is like seeing someone using a fax machine. Technically functional, but you know they're up to no good. The attackers either didn't get the memo about SFTP or they're nostalgic.
+
+00:11:15:33 - 00:11:18:11
+Keith
+Either way, it's a C2 signal.
+
+00:11:18:16 - 00:11:26:24
+Keith
+Here's the annotated view of what we found. The FTP entries are the key signal will prove each claim in the slides ahead.
+
+00:11:26:28 - 00:11:34:45
+Keith
+DNS and SSL dominate normal Windows 10 background chatter. We're going to confirm that in the SSL slide in a second.
+
+00:11:34:50 - 00:11:41:28
+Keith
+HTTP is minimal, mostly the IP dash API check, which will also show on the next slide.
+
+00:11:41:33 - 00:11:47:36
+Keith
+FTP and FTP data. That's the malicious signal. And this is proven in the stage three slides that you'll see in a minute.
+
+00:11:47:41 - 00:11:53:40
+Keith
+FTP from a modern workstation is like a payphone ringing. You answer it, but you know it's not good news.
+
+00:11:53:45 - 00:12:29:14
+Keith
+Let's verify that those 14 SSL connections aren't C2 traffic, they're all Microsoft. Settings dash win dot data dot Microsoft.com. Windows settings sync. You got login.live.com. That's Microsoft's account authentication. client.wns.windows.com. That's a Windows Notification service and the SLS.CR.update.microsoft.com. And you got some other Microsoft.com that's associated with Windows Update. Nothing suspicious here. This is normal Windows 10 background noise.
+
+00:12:29:18 - 00:12:31:42
+Keith
+SSL to Microsoft is like death and taxes.
+
+00:12:31:45 - 00:12:35:16
+Keith
+It's inevitable and usually not a sign of compromise.
+
+00:12:35:21 - 00:13:14:42
+Keith
+Let's verify the rest of the HTTP traffic is benign. CRL.Microsoft.com and microsoft.com/pkiops/crl that stands for certificate revocation list downloads. Basically, it's windows checking to see if HTTPS certs are still valid, and then we see some OCSP digitcert.com which is another online certificate status protocol thing. Only the ip-api.com request is suspicious. And that has the parameters of fields equals hosting.
+
+00:13:14:54 - 00:13:19:19
+Keith
+And this is a telltale anti sandbox parameter.
+
+00:13:19:23 - 00:13:26:27
+Keith
+Windows goes full forensic accountant on every TLS cert. Meanwhile the malware just yells the passwords across the room.
+
+00:13:26:31 - 00:13:35:14
+Keith
+Windows ran a background check on digit certs responder, but then let a JavaScript walk right in with no ID required.
+
+00:13:35:19 - 00:13:53:21
+Keith
+Let's dive into stage one. The initial trigger at 2:45:46. About eight seconds after the PCAP starts, the malware makes its first outbound call, the DNS query for ip-api.com. It resolves to 208.95.112.1.
+
+00:13:53:26 - 00:13:55:26
+Keith
+The first thing the malware does is ask:
+
+00:13:55:28 - 00:14:00:23
+Keith
+“Am I in a sandbox?”, which is probably the first thing I would ask if I were a malware
+
+00:14:00:28 - 00:14:30:23
+Keith
+The DNS resolves and the HTTP get follows immediately after. Let's look at what it asked. The HTTP get to slash line slash question mark fields equals hosting. And this is a single field query to minimize footprint, I imagine. What it does is the IP-API.com that site returns whether the requesting IP, which is the malware sandbox in this case is in a hosting or a data center.
+
+00:14:30:28 - 00:14:36:01
+Keith
+If hosting equals true, it's a sandbox or a VPS and the malware stops.
+
+00:14:36:06 - 00:14:52:58
+Keith
+If hosting equals false, it's a residential connection. Safe to proceed. The response of false means, not a hosting provider. The malware proceeds and will see the whole FTP exchange on the next slide.
+
+00:14:53:03 - 00:15:07:03
+Keith
+The malware asks: “Am I in a sandbox?” before it runs. And that's more caution than most people show before clicking links in an email. The malware is more careful about where it runs than most people when they're clicking on that link.
+
+00:15:07:08 - 00:15:32:39
+Keith
+Here's the full HTTP exchange captured by tcpdump. The request and the response, and we can verify what the script saw by running the same query on our IP address. And you can do that with a curl command. You just go to run curl ip-api.com and you put the rest of that URL we've been showing on the slides up, and you'll see it returns false for a residential IP address.
+
+00:15:32:39 - 00:15:36:01
+Keith
+Unless you happen to be running in a data center, then it may return true.
+
+00:15:36:06 - 00:15:57:24
+Keith
+Per the PCAP, the script receives false and it continues execution. So in the Malware analysis sandbox, it now thinks it's running in not a hosting environment and it continues executing. If it would have gotten true, it would have stopped. And the malware does a threat assessment before executing and the user didn’t.
+
+00:15:57:29 - 00:16:14:55
+Keith
+The anti sandbox check passed. So the malware is going to continue. So what does the malware do next. Let's look at what DNS queries happen right after the IP-API check at 02:45:47. One second later there's a query for FTP.
+
+00:16:15:00 - 00:16:21:09
+Keith
+telewatte-pe.com.
+
+00:16:21:14 - 00:16:37:35
+Keith
+FTP is an inherently insecure. It's got plaintext credentials. You see all the files that are being transferred without any types of encryption on it. So right there that's worth investigating. And we'll verify that this is the C2 in the next few slides.
+
+00:16:37:40 - 00:16:43:33
+Keith
+The malware passed its security check and immediately called home, which is more than I can say for my children.
+
+00:16:43:38 - 00:17:03:50
+Keith
+Let's look up whois data on that C2 IP and see who's hosting it. The whois lookup says this IP belongs to NameCheap and NameCheap is legitimate hosting provider. But attackers rent cheap VPS or compromise hosting accounts there.
+
+00:17:03:55 - 00:17:28:30
+Keith
+And for the low, low price of $5 a month, you too can host your credential exfiltration infrastructure. The domain telewatte-pe.com does that mean anything? I don't know, probably not. These kinds of disposable domains are common in short lived campaigns. As of today, the domain it appears to be parked so not exactly a sign of legitimate
+
+00:17:28:37 - 00:17:34:53
+Keith
+business. The domain is parked, which is more than I can say for these victims credentials.
+
+00:17:34:57 - 00:17:51:09
+Keith
+Stage three the actual exfiltration. So here's the FTP session from Zeek's FTP log. Now we see the full FTP session from Zeek’s FTP.log. It has the username of coach....
+
+00:17:51:14 - 00:18:29:42
+Keith
+I'm guessing coachyrdp? That's how it looks to me. But maybe it's CoachyRDP. Yeah, CoachyRDP is probably more probable in the computer sense and it's the username CoachyRDP@telewatte-pe.com. And after the authentication the malware immediately issues a store which is upload and the file name this long file name of pw underscore admin dash desktop dash JGLLJLD underscore 2006 underscore oh six underscore 16 underscore and then the time dot HTML.
+
+00:18:29:47 - 00:18:40:12
+Keith
+So PW underscore admin. PW is the malware prefix and admin that's the victim's username from the sandbox that ran this JavaScript.
+
+00:18:40:16 - 00:18:52:19
+Keith
+And you'll see username admin in the payload in a minute. The desktop dash JGLLJLD. That's the victim's machine name that we saw earlier.
+
+00:18:52:24 - 00:19:06:17
+Keith
+The timestamp. That's just the string on the file. So that way if you're uploading multiple of the same name it can be differentiated by the time stamp. And I just want to scroll to the right here so you can look at the rest of this slide.
+
+00:19:06:17 - 00:19:15:04
+Keith
+Again I encourage you to go to UnpackThePCAP.com and go to these slides and you can follow along with me.
+
+00:19:15:08 - 00:19:40:56
+Keith
+And here's the embarrassing part for the attackers. Their own credentials are in the plaintext. The FTP connection is unencrypted, the password travels and you can see it. So the password is and I'll read it out just so it's in the log. But it's dot nine underscore p h equal equal a equal exclamation point b a. And this is captured in the PCAP in plaintext.
+
+00:19:41:06 - 00:19:55:28
+Keith
+And the attackers threw a rock from a glass house made entirely of plaintext passwords. In this case, the malware went to all that trouble to steal credentials, and then shouted its own credentials across the internet for free.
+
+00:19:55:33 - 00:20:24:57
+Keith
+The FTP data channel, which is port 12077, carried the stolen credentials as raw TSP data. TCPdump with the dash little n little n capital A shows the Ascii content of the packet payload, and we're filtering to only the destination port of 12077. And that isolates the upload from the control channel that we were talking about earlier. The control channel is on port 21.
+
+00:20:25:02 - 00:20:44:47
+Keith
+They built a sophisticated JavaScript dropper, and then they mailed the prize home on a postcard that anybody could read going through the mail. The attacker's OpSec spans the entire history of the internet. A modern JavaScript dropper that exfiltrates via 1971 FTP, no encryption
+
+00:20:44:52 - 00:20:53:45
+Keith
+included. And the result? It's. The result is the original file, an HTML page. It's, you know, dot HTML extension.
+
+00:20:53:45 - 00:21:10:01
+Keith
+And you can see the BR and the HR tags in there. And this contains the victim's credentials. You can see right in the middle there username admin password admin. Application Firefox. And above there a whole bunch of information about the computer.
+
+00:21:10:06 - 00:21:25:05
+Keith
+So let's break down what was in that stolen file. So first the system recon data. At the top. You'll remember the malware collected a full inventory of the victim's computer. It's like an IT audit but with way more felony charges.
+
+00:21:25:10 - 00:21:47:33
+Keith
+And here's what the attacker was actually after the saved credentials I showed you in the original raw text, but I made it on a nice little table here that you can look at and admire the admin admin for google.com. So the attacker really didn't need to crack anything. Though, keep in mind this was captured on any.run sandbox.
+
+00:21:47:33 - 00:22:01:51
+Keith
+So the weak credentials of admin slash admin meaning username admin password admin. The weak credentials are expected for this type of a test environment, so a real victim's passwords hopefully may vary.
+
+00:22:01:56 - 00:22:14:26
+Keith
+The attacker went through all that effort though. Phishing, JavaScript anti analysis. FTP to steal the password admin. Which is the first thing I try when I forget my own passwords.
+
+00:22:14:31 - 00:22:34:09
+Keith
+Firefox stores saved passwords in this logins.json, and without a master password on that, they're readable by any process running as the user. So the only thing standing between your Firefox passwords and the Polish JavaScript file is absolutely nothing. So turn on your master password.
+
+00:22:34:14 - 00:22:50:21
+Keith
+So here's the timeline. The PCAP starts with normal windows background noise. DNS for things like microsoft.com. And then you see at 2:45:40 there's DNS for google.com. And that's probably a connectivity check by the script.
+
+00:22:50:26 - 00:23:07:54
+Keith
+At 2:45:46 the anti sandbox ip-api.com check happens and at 2:45:47 the FTP C2 resolves and the connection begins. At 2:45:48 the stolen data is already uploaded and its all done.
+
+00:23:07:59 - 00:23:36:32
+Keith
+The entire malicious activity about two seconds. The attacker did more damage in two seconds than most people do all day. Two seconds of network traffic. The days of incident response. The ROI is horrible. After the exfiltrtion, Windows telemetry continues like nothing happened. The credential theft we saw is one shot, steal, upload and done. But the malware also has persistence via scheduled tasks.
+
+00:23:36:32 - 00:24:01:01
+Keith
+The tasks that we looked at earlier, and that happens every 15 minutes, and the dropped TTF payload that runs every 15 minutes. So there may be more stages we didn't see in this short PCAP that was just run on a malware analysis sandbox, which eventually will end after a couple of minutes. It doesn't stay on there for hours, so we may miss part of this.
+
+00:24:01:06 - 00:24:08:55
+Keith
+And the malware is like a smash and grab. But the smash is a JavaScript file and the grab is your Firefox passwords.
+
+00:24:09:00 - 00:24:29:43
+Keith
+So your hunting checklist courtesy of this PCAP. DNS queries for FTP dot any domain from a non server workstation. Outbound FTP on port 21 from client machines IP-API queries with fields equals hosting. That's usually a dead giveaway.
+
+00:24:29:48 - 00:24:38:48
+Keith
+FTP names matching PW underscore, then it's a user, then it's the host name, and then it's a big time stamp dot html.
+
+00:24:38:52 - 00:25:00:40
+Keith
+We knew that that's how this malware bundles up the credentials. The IOC's come directly from this PCAP and the published any.run analysis that you can get online. And the hunting checklist is shorter than the malware file name, believe it or not. These IOCs are brought to you by the attackers decision to not use encrypted protocols.
+
+00:25:00:44 - 00:25:29:54
+Keith
+Let's talk about detections. I wrote a script that generates notices for these four stages of this attack, and individually each notice could be a false alarm, but you need a good excuse for IP-API and FTP dot telewatte and FTP plain text passwords all hitting the same host. It's just when all these things line up, the probability becomes much greater that you're probably dealing with this malware.
+
+00:25:29:59 - 00:25:36:42
+Keith
+Three detection points. The attacker left more footprints than a Daytona beach on spring break.
+
+00:25:36:47 - 00:26:07:58
+Keith
+This rule catches the anti sandbox IP-API.com call, which is that HTTP request we talked about earlier. The specific URI it's looking for is that slash line slash question mark fields equals hosting. And it's unique. Typically the malware, usually legitimate software does not query this URL. I mean it could, but this is usually a pretty good flag that something malicious trying to figure out if it's on a hosting service.
+
+00:26:08:03 - 00:26:19:46
+Keith
+And it says “Am I in a data center?” So the malware asked am I in a sandbox before stealing passwords, and that's more situational awareness than most interns.
+
+00:26:19:51 - 00:26:32:00
+Keith
+Some additional rules. DNS for the C2 domain, the ftp.telewatte-pe.com, and the credential file name pattern of PW underscore star dot html.
+
+00:26:32:05 - 00:26:47:26
+Keith
+The store rule uses that regex to catch any FTP upload matching the naming convention. Even if the domain or the IP address changes. The malware has more lines of JavaScript obfuscation than we have lines of detection. But I like our odds.
+
+00:26:47:31 - 00:26:54:34
+Keith
+Running the script against the PCAP generates three notices, each one for each detection rule.
+
+00:26:54:39 - 00:27:13:52
+Keith
+The full script is in the scripts directory in this episode’s directory, and you can get to it on the same table of that UnpackThePCAP.com that I pointed to earlier to get to the slides. It's truly a free detection rule and no subscription required, but a subscribe would be appreciated!
+
+00:27:13:57 - 00:27:42:48
+Keith
+Here are the DuckDB queries to hunt for this campaign across your Zeek logs retroactively. You have the number one the FTP store commands with that HTML file names, which is the exfil pattern that we saw earlier. And we have number two, the IP-API.com HTTP request to that specific hosting URI that we discussed earlier that tries to be anti-sandbox.
+
+00:27:42:53 - 00:28:11:19
+Keith
+These queries work on any Zeek log directory just using this read_zeek function inside the DuckDB extension I pointed you to earlier. And the star star slash glob searches all subdirectories recursively, so you can point this at your entire Zeek log repository and just let it go and see what comes back, and then start doing the correlations like we did in this video, and try to figure out if it's this malware strain or not.
+
+00:28:11:24 - 00:28:32:04
+Keith
+Just two DB queries. That's all it took. The malware took more lines to obfuscate its variable names. The attacker's entire kill chain fits in two SQL where clauses. The attacker built a multi-stage JavaScript dropper. I built a two line DB query. I got the better deal.
+
+00:28:32:09 - 00:28:42:23
+Keith
+Blue team takeaway time. Takeaway number one. FTP from a non server machine in 2026 is almost always suspicious.
+
+00:28:42:27 - 00:29:05:45
+Keith
+FTP has been on its way out so not a lot of people use FTP anymore. You have SFTP, you have SCP and even SMB. Sure. Plaintext FTP from a Windows 10 desktop? Nope. FTP is from the era when sending your passwords in the clear was socially acceptable, like smoking in hospitals or using Internet Explorer 6.
+
+00:29:05:50 - 00:29:21:23
+Keith
+This campaign uses FTP because it's simple to script in JavaScript. FTP traffic blends in with other outbound TCP traffic and some SOCs, they don't monitor FTP traffic closely at all.
+
+00:29:21:27 - 00:29:36:27
+Keith
+And blue Team takeaway number two. I don't even need a slide for this. Anti-aliasing checks. They're a beacon. So the ip-api.com that we saw earlier with that specific URI that goes to fields equal hosting.
+
+00:29:36:42 - 00:29:48:24
+Keith
+That's likely malware behavior. So any client querying IP-API.com for hosting, proxy, mobile fields should be investigated.
+
+00:29:48:29 - 00:30:09:05
+Keith
+Take away three, JavaScript files are executables, not documents. Windows script hosts. That's a windows component that runs JavaScript files, and double clicking on a JavaScript file launches wscript.exe, which executes it no different than running an exe file.
+
+00:30:09:10 - 00:30:19:51
+Keith
+Windows Script Host provides the ActiveX objects that this malware uses the wscript dot shell scripting dot filesystemobject, etc.
+
+00:30:19:56 - 00:30:26:46
+Keith
+Users think it's a document. Windows treats it as an executable. The attacker thinks you for your confusion.
+
+00:30:26:51 - 00:30:51:42
+Keith
+So some policy recommendations. Block JavaScript attachments at the email gateway. If users need JavaScript files, use a controlled process, maybe a zip with a password or a developer channel to pass that JavaScript around. Instead, monitor for wscript.exe and cscript.exe spawning from Office and email processes.
+
+00:30:51:47 - 00:31:19:50
+Keith
+Takeaway number four, a short PCAP can miss the bigger picture. We caught the credential theft here in about two seconds, meaning two seconds is all it took for the attack. But with our queries it was almost two seconds as well. A short PCAP may not show the full picture. There could be other stages, maybe 30 minutes out. Another stage ran that we didn't see so we could have missed something.
+
+00:31:19:55 - 00:31:26:43
+Keith
+We caught the appetizer, but the main course was scheduled for every 15 minutes and just never showed up in the PCAP.
+
+00:31:26:47 - 00:31:37:09
+Keith
+Detection tip: even if the PCAP looks short, check the malware strings for persistence mechanism. Here we saw the scheduled task persistence mechanism being used.
+
+00:31:37:14 - 00:31:45:26
+Keith
+Takeaway five the attackers didn't encrypt their own traffic. The attacker's own FTP password was in plaintext in the PCAP.
+
+00:31:45:31 - 00:31:54:04
+Keith
+So that really random looking password that I described to you earlier was not exactly admin, but it was still sent in the clear.
+
+00:31:54:09 - 00:32:01:50
+Keith
+The attacker stole passwords for a living, but didn't bother to encrypt their own. And it was like a locksmith who leaves their own keys in the door.
+
+00:32:01:55 - 00:32:07:15
+Keith
+What this means for defenders. If you have network visibility, you can capture attacker credentials.
+
+00:32:07:19 - 00:32:10:58
+Keith
+Consider flowing Zeek FTP logs into your SIEM.
+
+00:32:11:03 - 00:32:17:09
+Keith
+The only encrypted thing in this entire attack was a TLS cert check that had nothing to do with the crime.
+
+00:32:17:14 - 00:32:35:19
+Keith
+Based on the PCAP and published analysis, this campaign was simple but effective. No zero days, no buffer overflows, no fancy exploits, just a JavaScript file and human nature. The malware didn't exploit vulnerability, it exploited the user. Much easier to find.
+
+00:32:35:24 - 00:32:59:04
+Keith
+The timeline tells the story. The first malicious packet to IP-API to the upload complete. That's about three seconds, and that's faster than most security tools can alert. You can have the best EDR, the best SIEM, the best SOC, but none of that helps if Linda in accounting double clicks a JavaScript file at 2:45 am.
+
+00:32:59:09 - 00:33:03:33
+Keith
+End user takeaways: block JavaScript attachments at the gateway.
+
+00:33:03:35 - 00:33:13:54
+Keith
+Alert on outbound FTP from workstations. Monitor for IP-API.com queries specifically looking for that hosting parameter.
+
+00:33:13:59 - 00:33:33:23
+Keith
+Train your users that JavaScript files are executable code and for the love of God, don't use admin as your actual password, though in this case it was any.run sandbox, so the week creds are to be expected. But the attacker worked harder for admin than the victim did to create it.
+
+00:33:33:28 - 00:33:58:11
+Keith
+Three seconds of exfiltration to steal a password that takes zero seconds to guess. Admin admin. The password was so weak the malware should have been embarrassed to steal it. So last closing thought none of this required a zero day or nation state budget. Just a JavaScript file, a NameCheap FTP, and one tired user at 2 a.m.. That's a threat model that keeps us up at night.
+
+00:33:58:16 - 00:34:02:18
+Keith
+If this was useful, please subscribe, like and share. We'll see you on the next
+
