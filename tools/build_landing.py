@@ -302,6 +302,11 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
     tree = f"{repo_url}/tree/main/episodes/{episode.slug}"
     blob = f"{repo_url}/blob/main/episodes/{episode.slug}"
 
+    # The title goes to the video, which is what someone clicking an episode is
+    # after; the deck has its own chip below. Until the video is up there is
+    # nothing to link to, so the title falls back to the deck.
+    title_url = f"https://youtu.be/{episode.youtube}" if episode.youtube else deck_url
+
     chips = []
     if episode.youtube:
         chips.append(render_chip("video", "Video", f"https://youtu.be/{episode.youtube}"))
@@ -324,7 +329,7 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
             <span class="ep-num">EP {episode.number}</span>
             <time class="date" datetime="{episode.date_iso}">{episode.date_display}</time>
           </p>
-          <h3><a href="{html.escape(deck_url, quote=True)}">{esc(episode.title)}</a></h3>{subtitle}
+          <h3><a href="{html.escape(title_url, quote=True)}">{esc(episode.title)}</a></h3>{subtitle}
         </div>
         <ul class="links">
           {chip_html}
