@@ -4,7 +4,12 @@
   "description": "UnpackThePCAP podcast slides",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "check:slides": "tools/check-slides.sh",
+    "build:landing": "python3 tools/build_landing.py",
+    "check:landing": "python3 tools/build_landing.py --check",
+    "preview:landing": "python3 tools/build_landing.py --out /tmp/landing --slides-base https://unpackthepcap.com/ && open /tmp/landing/index.html",
+    "shots:landing": "python3 tools/build_landing.py --out /tmp/landing --slides-base https://unpackthepcap.com/ && node tools/shoot-landing.js /tmp/landing/index.html output/screenshots"
   },
   "repository": {
     "type": "git",
@@ -19,7 +24,8 @@
   },
   "homepage": "https://github.com/keithjjones/UnpackThePCAP#readme",
   "devDependencies": {
-    "@slidev/cli": "^52.16.0"
+    "@slidev/cli": "^52.16.0",
+    "playwright-chromium": "^1.63.0"
   },
   "dependencies": {
     "@slidev/theme-default": "^0.25.0"

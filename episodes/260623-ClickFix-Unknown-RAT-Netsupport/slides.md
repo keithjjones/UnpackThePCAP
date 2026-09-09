@@ -4,6 +4,7 @@ title: 'SmartApeSG ClickFix — Unidentified RAT → NetSupport RAT'
 canvasWidth: 900
 lineNumbers: true
 routerMode: hash
+youtube: GOWRDjaD74g
 ---
 
 # Unpack the PCAP: SmartApeSG ClickFix

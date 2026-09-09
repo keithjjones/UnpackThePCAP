@@ -1,0 +1,625 @@
+<!doctype html>
+<!--
+  Landing page template for the Unpack the PCAP site.
+
+  This file is the DESIGN. tools/build_landing.py fills in the placeholders
+  below and writes the result to dist/index.html; nothing else is generated,
+  so you can edit any markup or CSS here without touching the Python.
+
+  Placeholders, each written as the name in double braces (not spelled out here,
+  because substitution is a plain string replace and would fill this comment in
+  too, duplicating the whole card list):
+
+    EPISODES   the episode card list, newest first
+    COUNT      e.g. "3 unpacked"
+    SITE_URL   canonical site URL, used for the social-share tags
+    PAGE_SIZE  how many cards to reveal at a time
+    SHOW_MORE  the "Show more" button, or empty below the threshold
+
+  Search and paging are progressive enhancements: every card is in the HTML, so
+  with JavaScript off the page is a complete list and the controls hide
+  themselves rather than sitting there dead.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unpack the PCAP — network forensics, one packet at a time</title>
+<meta name="description" content="Interactive slide decks, Zeek scripts, and transcripts for the Unpack the PCAP podcast — network forensics, one packet at a time.">
+
+<!-- Social share card, so a pasted link shows the banner instead of a bare URL. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Unpack the PCAP">
+<meta property="og:description" content="Network forensics, one packet at a time. Interactive slide decks, Zeek scripts, and transcripts for every episode.">
+<meta property="og:image" content="{{SITE_URL}}images/banner.png">
+<meta property="og:url" content="{{SITE_URL}}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="{{SITE_URL}}">
+<link rel="icon" href="images/banner.png">
+
+<style>
+  :root {
+    --bg:        #070d18;
+    --bg-2:      #0c1526;
+    --card:      #101c31;
+    --card-hover:#152340;
+    --line:      #1e3252;
+    --ink:       #e8eef8;
+    --ink-dim:   #93a6c4;
+    --ink-faint: #64789a;
+    --blue:      #4db8ff;
+    --green:     #46e07a;
+    --gold:      #ffc61a;
+    --red:       #e0342b;
+    --radius:    14px;
+    --maxw:      1120px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Soft glow behind the hero, picking up the banner's blue/green. */
+    background-image:
+      radial-gradient(1200px 500px at 50% -10%, rgba(77,184,255,.13), transparent 70%),
+      radial-gradient(900px 400px at 90% 5%, rgba(70,224,122,.07), transparent 70%);
+    background-repeat: no-repeat;
+  }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Visible keyboard focus, since almost everything here is a link. */
+  a:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* Present for screen readers, invisible on screen. */
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* ---------- Hero ---------- */
+
+  header.hero { padding: 28px 0 8px; }
+
+  .banner {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    box-shadow: 0 18px 50px -20px rgba(0,0,0,.9);
+  }
+
+  .tagline {
+    margin: 22px 0 0;
+    font-size: clamp(1.05rem, 3.4vw, 1.4rem);
+    line-height: 1.4;
+    font-weight: 500;
+    text-wrap: balance;
+  }
+  .tagline b { color: var(--gold); font-weight: 700; }
+
+  .byline {
+    margin: 8px 0 0;
+    color: var(--ink-dim);
+    font-size: .95rem;
+  }
+
+  /* ---------- Primary actions ---------- */
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 22px 0 4px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    /* 44px min height keeps these comfortable thumb targets on a phone. */
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font-weight: 600;
+    font-size: .95rem;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .btn:hover { background: var(--card-hover); border-color: var(--blue); text-decoration: none; transform: translateY(-1px); }
+  .btn svg { flex: none; }
+
+  .btn-primary {
+    background: linear-gradient(180deg, #e0342b, #c1201a);
+    border-color: #e0342b;
+    color: #fff;
+  }
+  .btn-primary:hover { background: linear-gradient(180deg, #f04138, #d0241d); border-color: #f04138; }
+
+  /* ---------- Section heading ---------- */
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 44px 0 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-head h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.01em; }
+  .count {
+    color: var(--ink-faint);
+    font: 500 .9rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  /* Pushes the search box to the right of the heading on wide screens. */
+  .section-head .spacer { flex: 1; }
+
+  /* ---------- Search ---------- */
+
+  /* Hidden until the script confirms JS is running, so a no-JS visitor never
+     sees an input that cannot do anything. */
+  .search { display: none; }
+  .js .search { display: flex; }
+
+  .search {
+    position: relative;
+    align-items: center;
+    flex: 0 1 260px;
+  }
+  .search svg {
+    position: absolute;
+    left: 11px;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .search input {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px 8px 34px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--bg-2);
+    color: var(--ink);
+    font: inherit;
+    font-size: .92rem;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .search input::placeholder { color: var(--ink-faint); }
+  .search input:focus {
+    outline: none;
+    border-color: var(--blue);
+    background: var(--card);
+  }
+  /* Suppress the native WebKit clear button; Esc and the empty field do the job
+     and the native one sits awkwardly inside a pill. */
+  .search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+  .search kbd {
+    position: absolute;
+    right: 10px;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--card);
+    color: var(--ink-faint);
+    font: 600 .75rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    pointer-events: none;
+  }
+  .search input:focus ~ kbd, .search input:not(:placeholder-shown) ~ kbd { display: none; }
+
+  /* No physical keyboard, no point advertising a keyboard shortcut -- and it
+     would sit on top of the placeholder in a narrow field. */
+  @media (hover: none) {
+    .search kbd { display: none; }
+  }
+
+  /* ---------- Empty state ---------- */
+
+  .no-results {
+    margin: 8px 0 40px;
+    padding: 28px 20px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    text-align: center;
+    color: var(--ink-dim);
+  }
+  .no-results b { color: var(--ink); }
+
+  /* ---------- Show more ---------- */
+
+  .more-wrap { display: flex; justify-content: center; margin: 0 0 44px; }
+  /* As with .card, `display: flex` beats the UA [hidden] rule, so without this
+     the button survives both a no-JS visit and a search that matches fewer
+     episodes than one page. */
+  .more-wrap[hidden] { display: none; }
+  .show-more {
+    min-height: 44px;
+    padding: 11px 26px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .show-more:hover { background: var(--card-hover); border-color: var(--blue); }
+  .show-more:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+
+  /* ---------- Episode cards ---------- */
+
+  .episodes {
+    /* auto-fill means no breakpoints: 1 column on a phone, 2 on a tablet,
+       3 on a desktop, and new episodes just fill in. */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    padding: 0;
+    margin: 0 0 40px;
+    list-style: none;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .card:hover {
+    border-color: rgba(77,184,255,.55);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px -18px rgba(0,0,0,.95);
+  }
+  /* `display: flex` above beats the UA stylesheet's [hidden] { display: none },
+     so filtering and paging need this or hidden cards stay on screen. */
+  .card[hidden] { display: none; }
+
+  /* Thin "packet stripe" across the top of each card. */
+  .stripe { height: 4px; background: linear-gradient(90deg, var(--blue), var(--green) 55%, var(--gold)); }
+
+  .card-body { padding: 18px 18px 14px; flex: 1; }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    font: 600 .78rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .ep-num {
+    padding: 5px 9px;
+    border-radius: 6px;
+    background: rgba(255,198,26,.13);
+    border: 1px solid rgba(255,198,26,.32);
+    color: var(--gold);
+  }
+  .date { color: var(--ink-faint); }
+
+  .card h3 {
+    margin: 0 0 6px;
+    font-size: 1.16rem;
+    line-height: 1.3;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  .card h3 a { color: var(--ink); }
+  .card h3 a:hover { color: var(--blue); text-decoration: none; }
+
+  .subtitle { margin: 0; color: var(--ink-dim); font-size: .93rem; line-height: 1.45; }
+
+  /* ---------- Link chips ---------- */
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 18px 18px;
+    margin: 0;
+    list-style: none;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 7px 13px;
+    border-radius: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    font-size: .86rem;
+    font-weight: 600;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--blue); background: var(--card-hover); text-decoration: none; }
+  .chip-video:hover { border-color: var(--red); }
+
+  /* The dot is a colour key, so each link type is identifiable at a glance
+     without relying on the label alone. */
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .chip-video   .dot { background: var(--red); }
+  .chip-slides  .dot { background: var(--blue); }
+  .chip-scripts .dot { background: var(--green); }
+  .chip-txt     .dot { background: var(--ink-faint); }
+
+  /* A "not yet" placeholder, not a link. */
+  .chip.muted {
+    color: var(--ink-faint);
+    border-style: dashed;
+    opacity: .7;
+    cursor: default;
+  }
+  .chip.muted .dot { background: var(--ink-faint); }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 26px 0 44px;
+    color: var(--ink-faint);
+    font-size: .9rem;
+  }
+  footer p { margin: 0 0 6px; }
+  footer kbd {
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--bg-2);
+    font: 600 .85em/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--ink-dim);
+  }
+  footer .foot-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+
+  /* ---------- Small screens ---------- */
+
+  @media (max-width: 620px) {
+    /* Heading and count on one line, search on its own line beneath. Side by
+       side at this width the count wraps and the input is too narrow to read. */
+    .section-head { flex-wrap: wrap; }
+    .section-head .spacer { display: none; }
+    .search { flex: 1 1 100%; }
+    .search input { min-height: 44px; }
+    .search kbd { display: none; }
+  }
+
+  @media (max-width: 520px) {
+    .wrap { padding: 0 14px; }
+    header.hero { padding-top: 14px; }
+    /* Stack the two hero buttons full width rather than cramming them side by side. */
+    .actions .btn { flex: 1 1 100%; justify-content: center; }
+    .card-body { padding: 16px 15px 12px; }
+    .links { padding: 0 15px 15px; }
+  }
+
+  /* ---------- Light mode ---------- */
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f8fd; --bg-2: #eaf0fa; --card: #ffffff; --card-hover: #f4f8ff;
+      --line: #d3ddec; --ink: #0d1a2e; --ink-dim: #4a5f7d; --ink-faint: #74879f;
+      --blue: #0a68c9; --green: #12864a; --gold: #9a6b00; --red: #c62828;
+    }
+    .ep-num { background: rgba(154,107,0,.09); border-color: rgba(154,107,0,.28); }
+    .card:hover, .banner { box-shadow: 0 10px 30px -18px rgba(13,26,46,.35); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .card:hover, .btn:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <img class="banner" src="images/banner.png" width="1380" height="752"
+         alt="Unpack the PCAP — an open PCAP box in a data center, streaming green packet data">
+
+    <p class="tagline">Network forensics, <b>one packet at a time.</b></p>
+    <p class="byline">Interactive slide decks, Zeek scripts, and transcripts for every episode.</p>
+
+    <nav class="actions" aria-label="Primary">
+      <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLANlbdyl2yBU">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        Watch on YouTube
+      </a>
+      <a class="btn" href="https://github.com/keithjjones/UnpackThePCAP">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-2.91-.88-2.91-2.9 0-.65.23-1.19.61-1.61-.06-.15-.27-.77.06-1.6 0 0 .61-.19 2.01.75a5.4 5.4 0 0 1 2.92 0c1.4-.95 2.01-.75 2.01-.75.33.83.12 1.45.06 1.6.38.42.61.95.61 1.61 0 2.03-1.13 2.7-2.92 2.9.29.25.55.74.55 1.5 0 1.08-.01 1.96-.01 2.23 0 .21.15.46.55.38A7.99 7.99 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        Source on GitHub
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="section-head">
+      <h2>Episodes</h2>
+      <!-- aria-live so a screen reader hears the result count change as you type. -->
+      <span class="count" id="episode-count" aria-live="polite">{{COUNT}}</span>
+      <span class="spacer"></span>
+
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle><path d="M16.5 16.5 21 21"></path>
+        </svg>
+        <label class="visually-hidden" for="episode-search">Search episodes</label>
+        <input id="episode-search" type="search" placeholder="Search episodes…"
+               autocomplete="off" spellcheck="false">
+        <kbd>/</kbd>
+      </div>
+    </div>
+
+    <ol class="episodes" id="episode-list" data-page-size="{{PAGE_SIZE}}">
+{{EPISODES}}
+    </ol>
+
+    <p class="no-results" id="no-results" hidden>
+      No episodes match <b id="no-results-query"></b>. Try a malware family, a
+      protocol, or an episode number.
+    </p>
+
+{{SHOW_MORE}}
+  </main>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Slides built with <a href="https://sli.dev">Slidev</a>. Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> to navigate a deck; press <kbd>o</kbd> for the slide overview.</p>
+    <div class="foot-links">
+      <a href="https://www.youtube.com/playlist?list=PLANlbdyl2yBU">YouTube playlist</a>
+      <a href="https://github.com/keithjjones/UnpackThePCAP">GitHub repository</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/*
+ * Episode search and paging.
+ *
+ * Everything is already in the DOM, so this only ever toggles the `hidden`
+ * attribute -- no fetching, no templating, no dependencies. Measured at 1000
+ * cards on a 4x-throttled mobile CPU: ~10ms to index, 3-7ms per keystroke.
+ *
+ * Each card carries a data-search haystack built by tools/build_landing.py,
+ * which is why typing a word that only appears in the folder name still hits.
+ */
+(function () {
+  var root = document.documentElement;
+  root.className += " js";           // reveals the search box; see .js .search
+
+  var list = document.getElementById("episode-list");
+  if (!list) return;
+
+  var input     = document.getElementById("episode-search");
+  var countEl   = document.getElementById("episode-count");
+  var emptyEl   = document.getElementById("no-results");
+  var emptyQ    = document.getElementById("no-results-query");
+  var moreWrap  = document.getElementById("more-wrap");
+  var moreBtn   = document.getElementById("show-more");
+
+  var cards = [].slice.call(list.getElementsByClassName("card"));
+  var total = cards.length;
+  var pageSize = parseInt(list.getAttribute("data-page-size"), 10) || total;
+
+  // Index once up front rather than re-reading the DOM on every keystroke.
+  var index = cards.map(function (card) {
+    return { el: card, hay: (card.getAttribute("data-search") || "").toLowerCase() };
+  });
+
+  var shown = pageSize;   // how many matches are currently revealed
+
+  function render() {
+    var query = input ? input.value.trim().toLowerCase() : "";
+    // Every word must appear, in any order, so "stealer lumma" finds the same
+    // episode as "lumma stealer".
+    var terms = query ? query.split(/\s+/) : [];
+    var matches = 0;
+
+    for (var i = 0; i < index.length; i++) {
+      var hay = index[i].hay;
+      var isMatch = true;
+      for (var t = 0; t < terms.length; t++) {
+        if (hay.indexOf(terms[t]) === -1) { isMatch = false; break; }
+      }
+      if (isMatch) matches++;
+      // Paging applies to matches, so "Show more" keeps working while filtering.
+      index[i].el.hidden = !(isMatch && matches <= shown);
+    }
+
+    if (countEl) {
+      countEl.textContent = query
+        ? matches + " of " + total + (matches === 1 ? " matches" : " match")
+        : total + " unpacked";
+    }
+
+    if (emptyEl) {
+      emptyEl.hidden = matches !== 0;
+      if (emptyQ) emptyQ.textContent = '"' + (input ? input.value.trim() : "") + '"';
+    }
+
+    if (moreWrap && moreBtn) {
+      var remaining = matches - Math.min(shown, matches);
+      moreWrap.hidden = remaining <= 0;
+      moreBtn.textContent = "Show " + remaining + " more";
+    }
+  }
+
+  if (input) {
+    input.addEventListener("input", function () {
+      shown = pageSize;      // a new query starts from the first page again
+      render();
+    });
+
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") { input.value = ""; shown = pageSize; render(); }
+    });
+
+    // "/" focuses search from anywhere, the convention on docs sites. Ignored
+    // while typing in a field so it does not swallow a literal slash.
+    document.addEventListener("keydown", function (event) {
+      var tag = (event.target.tagName || "").toLowerCase();
+      if (event.key === "/" && tag !== "input" && tag !== "textarea") {
+        event.preventDefault();
+        input.focus();
+      }
+    });
+
+    // ?q=lumma makes a search shareable and survives a reload.
+    var initial = new URLSearchParams(location.search).get("q");
+    if (initial) input.value = initial;
+  }
+
+  if (moreBtn) {
+    moreBtn.addEventListener("click", function () {
+      shown += pageSize;
+      render();
+      // Focus the first newly revealed card so keyboard and screen-reader users
+      // continue from where the list grew instead of jumping to the top.
+      var revealed = list.querySelectorAll(".card:not([hidden]) h3 a");
+      var next = revealed[Math.min(shown - pageSize, revealed.length - 1)];
+      if (next) next.focus({ preventScroll: true });
+    });
+  }
+
+  render();
+})();
+</script>
+
+</body>
+</html>

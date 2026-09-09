@@ -33,6 +33,14 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Runs before the builds because both need to know where the site will be
+      # served. This reads the repo's live Pages settings, so base_path is
+      # "/UnpackThePCAP" on the github.io URL and "" once a custom domain is
+      # set -- meaning switching domains needs no change in this file.
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v4
+
       - name: Build All Decks
         run: |
           mkdir -p dist
@@ -40,12 +48,15 @@ jobs:
             deck_name=$(basename "$dir")
             echo "Building deck: $deck_name"
             npx slidev build "$dir/slides.md" \
-              --base "/${{ github.event.repository.name }}/$deck_name/" \
+              --base "${{ steps.pages.outputs.base_path }}/$deck_name/" \
               --out "${GITHUB_WORKSPACE}/dist/$deck_name"
           done
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      # Writes dist/index.html: the site root, listing every episode found in
+      # episodes/. Without this, the root URL is a 404 and only the per-deck
+      # subdirectories are reachable.
+      - name: Build Landing Page
+        run: python3 tools/build_landing.py --out dist --site-url "${{ steps.pages.outputs.base_url }}"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

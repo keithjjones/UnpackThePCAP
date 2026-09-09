@@ -4,6 +4,7 @@ title: 'Polish "Powiadomienie" JS Campaign — Credential Theft via FTP'
 canvasWidth: 900
 lineNumbers: true
 routerMode: hash
+youtube: ThFJ3UjKCJA
 ---
 
 # Unpack the PCAP: Polish "Powiadomienie" JS Campaign
