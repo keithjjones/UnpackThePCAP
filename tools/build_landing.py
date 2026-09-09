@@ -30,6 +30,11 @@ Usage:
     python3 tools/build_landing.py                      # -> dist/
     python3 tools/build_landing.py --out /tmp/preview    # somewhere else
     python3 tools/build_landing.py --check               # just list what it found
+    python3 tools/build_landing.py --find 3              # ep number -> folder
+    python3 tools/build_landing.py --find 260623-Click   # folder -> ep number
+
+Episode numbers live nowhere but this file's ordering, so --find is how you ask
+what they are rather than counting folders by hand.
 
 Exits 1 if an episode folder is malformed, so a bad name fails the build
 rather than silently vanishing from the page.
@@ -207,7 +212,11 @@ def load_episode(directory: Path, errors: list[str]) -> Episode | None:
 
 
 def discover(episodes_dir: Path) -> tuple[list[Episode], list[str]]:
-    """Publishable episodes, newest first; drafts filtered out."""
+    """Every episode, newest first, numbered. Drafts included and flagged.
+
+    Drafts stay in the list because they hold a number, and callers that need to
+    look one up want the draft they are working on. The page filters them out.
+    """
     errors: list[str] = []
     found: list[Episode] = []
 
@@ -223,7 +232,32 @@ def discover(episodes_dir: Path) -> tuple[list[Episode], list[str]]:
         episode.number = index
 
     # Present newest first: that is what a visitor wants to see at the top.
-    return [e for e in reversed(found) if not e.draft], errors
+    return list(reversed(found)), errors
+
+
+# A bare number, with or without an "ep" in front: "3", "ep3", "EP 12". Bounded
+# to four digits so a YYMMDD date falls through to the slug match below, where
+# "260904" finds the episode by its folder name instead.
+EP_QUERY_RE = re.compile(r"^(?:ep\s*)?(\d{1,4})$", re.IGNORECASE)
+
+
+def find_episodes(episodes: list[Episode], query: str) -> list[Episode]:
+    """Resolve a query in either direction: episode number, or folder name."""
+    query = query.strip().rstrip("/")
+
+    match = EP_QUERY_RE.match(query)
+    if match:
+        numbered = [e for e in episodes if e.number == int(match.group(1))]
+        # No such episode, so the digits were not a number after all: "260" is
+        # someone reaching for a date. Fall through and match it as a name.
+        if numbered:
+            return numbered
+
+    # A path, a bare folder name, or any fragment of one. Taking the basename
+    # means "episodes/260623-Foo" and a tab-completed absolute path both work.
+    name = Path(query).name.lower()
+    exact = [e for e in episodes if e.slug.lower() == name]
+    return exact or [e for e in episodes if name in e.slug.lower()]
 
 
 # --------------------------------------------------------------------------
@@ -351,6 +385,22 @@ def render_page(template: str, episodes: list[Episode], *,
 # CLI
 # --------------------------------------------------------------------------
 
+def describe(episode: Episode) -> str:
+    """Two lines: what the card will say, then the folder it came from.
+
+    The folder name is on its own line rather than a fourth column because it is
+    longer than everything else put together, and it is what makes this listing
+    readable in both directions -- number to folder and folder to number.
+    """
+    extras = [name for flag, name in
+              ((episode.youtube, "video"), (episode.has_scripts, "scripts"),
+               (episode.has_transcript, "transcript")) if flag]
+    draft = "  (draft, hidden from the site)" if episode.draft else ""
+    return (f"  EP {episode.number}  {episode.date_iso}  {episode.title}"
+            f"  [{', '.join(extras) or 'slides only'}]{draft}\n"
+            f"        episodes/{episode.slug}")
+
+
 def repo_url_from_package_json() -> str:
     """Reuse package.json's repository URL rather than duplicating it here."""
     try:
@@ -379,6 +429,10 @@ def main(argv: list[str] | None = None) -> int:
                              "deployed site wants. Pass the live site URL to preview locally.")
     parser.add_argument("--check", action="store_true",
                         help="report what was found and write nothing")
+    parser.add_argument("--find", metavar="EP-OR-DIR",
+                        help="look up one episode by number ('3') or by folder "
+                             "name ('260623-ClickFix...', a path, or a fragment) "
+                             "and write nothing")
     args = parser.parse_args(argv)
 
     if not args.site_url.endswith("/"):
@@ -393,22 +447,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"build_landing: {message}", file=sys.stderr)
     if errors:
         return 1
-    if not episodes:
-        print("build_landing: no publishable episodes found", file=sys.stderr)
-        return 1
+
+    if args.find:
+        hits = find_episodes(episodes, args.find)
+        if not hits:
+            print(f"build_landing: no episode matches {args.find!r}", file=sys.stderr)
+            return 1
+        for episode in hits:
+            print(describe(episode))
+        return 0
 
     for episode in episodes:
-        extras = [name for flag, name in
-                  ((episode.youtube, "video"), (episode.has_scripts, "scripts"),
-                   (episode.has_transcript, "transcript")) if flag]
-        print(f"  EP {episode.number}  {episode.date_iso}  {episode.title}"
-              f"  [{', '.join(extras) or 'slides only'}]")
+        print(describe(episode))
 
     if args.check:
         return 0
 
+    published = [e for e in episodes if not e.draft]
+    if not published:
+        print("build_landing: no publishable episodes found", file=sys.stderr)
+        return 1
+
     repo_url = repo_url_from_package_json()
-    page = render_page(args.template.read_text(encoding="utf-8"), episodes,
+    page = render_page(args.template.read_text(encoding="utf-8"), published,
                        slides_base=args.slides_base, repo_url=repo_url,
                        site_url=args.site_url)
 
@@ -419,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
     images.mkdir(exist_ok=True)
     shutil.copyfile(BANNER_SRC, images / "banner.png")
 
-    print(f"build_landing: wrote {args.out / 'index.html'} ({len(episodes)} episodes)")
+    print(f"build_landing: wrote {args.out / 'index.html'} ({len(published)} episodes)")
 
     return 0
 

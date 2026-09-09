@@ -46,6 +46,27 @@ episodes out of chronological order would renumber them. `draft: true` is
 counted when numbering, so publishing a draft never renumbers the episodes
 already out in the world.
 
+### Which episode is EP 7?
+
+Because the numbers are derived, no file anywhere records them. `npm run ep`
+answers in both directions, using the same ordering the page is built from:
+
+```bash
+npm run ep -- 2                    # number -> folder
+npm run ep -- episodes/260730-Pol  # folder -> number, and a fragment is enough
+```
+
+```
+  EP 2  2026-07-30  Polish "Powiadomienie" JS Campaign  [video, scripts, transcript]
+        episodes/260730-Polish-Powiadomienie-JS-Campaign
+```
+
+It takes `2`, `ep2`, or `EP 2`; a folder name, a path, or any part of one; and a
+date fragment like `260730`. Anything matching more than one episode prints them
+all, and no match exits 1. Drafts are included and marked, since the number you
+most often want to look up belongs to the episode you have not published yet.
+`npm run check:landing` prints the same lines for every episode at once.
+
 ## Working on the site locally
 
 ```bash

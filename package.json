@@ -8,6 +8,7 @@
     "check:slides": "tools/check-slides.sh",
     "build:landing": "python3 tools/build_landing.py",
     "check:landing": "python3 tools/build_landing.py --check",
+    "ep": "python3 tools/build_landing.py --find",
     "preview:landing": "python3 tools/build_landing.py --out /tmp/landing --slides-base https://unpackthepcap.com/ && open /tmp/landing/index.html",
     "shots:landing": "python3 tools/build_landing.py --out /tmp/landing --slides-base https://unpackthepcap.com/ && node tools/shoot-landing.js /tmp/landing/index.html output/screenshots"
   },
