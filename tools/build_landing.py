@@ -97,6 +97,7 @@ class Episode:
     title: str
     subtitle: str
     youtube: str = ""
+    facebook: str = ""
     draft: bool = False
     has_scripts: bool = False
     has_transcript: bool = False
@@ -205,6 +206,7 @@ def load_episode(directory: Path, errors: list[str]) -> Episode | None:
         title=title,
         subtitle=subtitle,
         youtube=headmatter.get("youtube", ""),
+        facebook=headmatter.get("facebook", ""),
         draft=is_truthy(headmatter.get("draft", "")),
         has_scripts=scripts_dir.is_dir() and any(scripts_dir.iterdir()),
         has_transcript=(directory / "transcript.txt").is_file(),
@@ -309,7 +311,11 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
 
     chips = []
     if episode.youtube:
-        chips.append(render_chip("video", "Video", f"https://youtu.be/{episode.youtube}"))
+        chips.append(render_chip("video", "YouTube", f"https://youtu.be/{episode.youtube}"))
+    # Only the episodes with their own Facebook video get this chip; the
+    # generic show page lives in the header instead.
+    if episode.facebook:
+        chips.append(render_chip("facebook", "Facebook", episode.facebook))
     chips.append(render_chip("slides", "Slides", deck_url))
     if episode.has_scripts:
         chips.append(render_chip("scripts", "Zeek scripts", f"{tree}/scripts"))
@@ -317,7 +323,7 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
         chips.append(render_chip("txt", "Transcript", f"{blob}/transcript.txt"))
     if not episode.youtube:
         # Better than an empty gap: says the episode is out, video is pending.
-        chips.append('<li><span class="chip muted"><span class="dot"></span>Video soon</span></li>')
+        chips.append('<li><span class="chip muted"><span class="dot"></span>YouTube soon</span></li>')
 
     subtitle = f'\n          <p class="subtitle">{esc(episode.subtitle)}</p>' if episode.subtitle else ""
     chip_html = "\n          ".join(chips)
@@ -398,7 +404,8 @@ def describe(episode: Episode) -> str:
     readable in both directions -- number to folder and folder to number.
     """
     extras = [name for flag, name in
-              ((episode.youtube, "video"), (episode.has_scripts, "scripts"),
+              ((episode.youtube, "youtube"), (episode.facebook, "facebook"),
+               (episode.has_scripts, "scripts"),
                (episode.has_transcript, "transcript")) if flag]
     draft = "  (draft, hidden from the site)" if episode.draft else ""
     return (f"  EP {episode.number}  {episode.date_iso}  {episode.title}"

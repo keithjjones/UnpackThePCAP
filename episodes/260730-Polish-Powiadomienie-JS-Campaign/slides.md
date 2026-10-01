@@ -5,6 +5,7 @@ canvasWidth: 900
 lineNumbers: true
 routerMode: hash
 youtube: ThFJ3UjKCJA
+facebook: https://www.facebook.com/reel/2139098633310907
 ---
 
 # Unpack the PCAP: Polish "Powiadomienie" JS Campaign

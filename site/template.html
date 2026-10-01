@@ -48,9 +48,11 @@
     --ink-dim:   #93a6c4;
     --ink-faint: #64789a;
     --blue:      #4db8ff;
+    --purple:    #a06bff;
     --green:     #46e07a;
     --gold:      #ffc61a;
     --red:       #e0342b;
+    --facebook:  #1877f2;
     --radius:    14px;
     --maxw:      1120px;
   }
@@ -149,7 +151,7 @@
     font-size: .95rem;
     transition: background .15s, border-color .15s, transform .15s;
   }
-  .btn:hover { background: var(--card-hover); border-color: var(--blue); text-decoration: none; transform: translateY(-1px); }
+  .btn:hover { background: var(--card-hover); border-color: var(--purple); text-decoration: none; transform: translateY(-1px); }
   .btn svg { flex: none; }
 
   .btn-primary {
@@ -158,6 +160,15 @@
     color: #fff;
   }
   .btn-primary:hover { background: linear-gradient(180deg, #f04138, #d0241d); border-color: #f04138; }
+
+  /* Facebook blue in a gradient, matching the YouTube button's depth, so the
+     two platforms are told apart by colour alone. */
+  .btn-facebook {
+    background: linear-gradient(180deg, #2b7cf5, var(--facebook));
+    border-color: #2b7cf5;
+    color: #fff;
+  }
+  .btn-facebook:hover { background: linear-gradient(180deg, #3d8df7, #2885f7); border-color: #3d8df7; color: #fff; }
 
   /* ---------- Section heading ---------- */
 
@@ -269,7 +280,7 @@
     cursor: pointer;
     transition: background .15s, border-color .15s;
   }
-  .show-more:hover { background: var(--card-hover); border-color: var(--blue); }
+  .show-more:hover { background: var(--card-hover); border-color: var(--purple); }
   .show-more:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 
   /* ---------- Episode cards ---------- */
@@ -363,16 +374,35 @@
     font-weight: 600;
     transition: color .15s, border-color .15s, background .15s;
   }
-  .chip:hover { color: var(--ink); border-color: var(--blue); background: var(--card-hover); text-decoration: none; }
-  .chip-video:hover { border-color: var(--red); }
+  .chip:hover { color: var(--ink); border-color: var(--purple); background: var(--card-hover); text-decoration: none; }
+
+  /* YouTube is red and Facebook is blue: the two video links are solid
+     buttons so the platform reads at a glance, not just from the label. */
+  .chip-video {
+    background: linear-gradient(180deg, #e0342b, #c1201a);
+    border-color: #e0342b;
+    color: #fff;
+  }
+  .chip-video:hover {
+    background: linear-gradient(180deg, #f04138, #d0241d);
+    border-color: #f04138;
+    color: #fff;
+  }
+  .chip-facebook {
+    background: linear-gradient(180deg, #2b7cf5, var(--facebook));
+    border-color: #2b7cf5;
+    color: #fff;
+  }
+  .chip-facebook:hover { background: linear-gradient(180deg, #3d8df7, #2885f7); border-color: #3d8df7; color: #fff; }
 
   /* The dot is a colour key, so each link type is identifiable at a glance
      without relying on the label alone. */
   .chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-  .chip-video   .dot { background: var(--red); }
-  .chip-slides  .dot { background: var(--blue); }
-  .chip-scripts .dot { background: var(--green); }
-  .chip-txt     .dot { background: var(--ink-faint); }
+  .chip-video    .dot,
+  .chip-facebook .dot { background: #fff; }
+  .chip-slides   .dot { background: var(--purple); }
+  .chip-scripts  .dot { background: var(--green); }
+  .chip-txt      .dot { background: var(--ink-faint); }
 
   /* A "not yet" placeholder, not a link. */
   .chip.muted {
@@ -419,7 +449,7 @@
   @media (max-width: 520px) {
     .wrap { padding: 0 14px; }
     header.hero { padding-top: 14px; }
-    /* Stack the two hero buttons full width rather than cramming them side by side. */
+    /* Stack the hero buttons full width rather than cramming them side by side. */
     .actions .btn { flex: 1 1 100%; justify-content: center; }
     .card-body { padding: 16px 15px 12px; }
     .links { padding: 0 15px 15px; }
@@ -431,7 +461,7 @@
     :root {
       --bg: #f5f8fd; --bg-2: #eaf0fa; --card: #ffffff; --card-hover: #f4f8ff;
       --line: #d3ddec; --ink: #0d1a2e; --ink-dim: #4a5f7d; --ink-faint: #74879f;
-      --blue: #0a68c9; --green: #12864a; --gold: #9a6b00; --red: #c62828;
+      --blue: #0a68c9; --purple: #6f3ff5; --green: #12864a; --gold: #9a6b00; --red: #c62828;
     }
     .ep-num { background: rgba(154,107,0,.09); border-color: rgba(154,107,0,.28); }
     .card:hover, .banner { box-shadow: 0 10px 30px -18px rgba(13,26,46,.35); }
@@ -458,6 +488,10 @@
       <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLANlbdyl2yBU">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
         Watch on YouTube
+      </a>
+      <a class="btn btn-facebook" href="https://www.facebook.com/UnpackThePCAP/">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Watch on Facebook
       </a>
       <a class="btn" href="https://github.com/keithjjones/UnpackThePCAP">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-2.91-.88-2.91-2.9 0-.65.23-1.19.61-1.61-.06-.15-.27-.77.06-1.6 0 0 .61-.19 2.01.75a5.4 5.4 0 0 1 2.92 0c1.4-.95 2.01-.75 2.01-.75.33.83.12 1.45.06 1.6.38.42.61.95.61 1.61 0 2.03-1.13 2.7-2.92 2.9.29.25.55.74.55 1.5 0 1.08-.01 1.96-.01 2.23 0 .21.15.46.55.38A7.99 7.99 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -504,6 +538,7 @@
     <p>Slides built with <a href="https://sli.dev">Slidev</a>. Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> to navigate a deck; press <kbd>o</kbd> for the slide overview.</p>
     <div class="foot-links">
       <a href="https://www.youtube.com/playlist?list=PLANlbdyl2yBU">YouTube playlist</a>
+      <a href="https://www.facebook.com/UnpackThePCAP/">Facebook page</a>
       <a href="https://github.com/keithjjones/UnpackThePCAP">GitHub repository</a>
     </div>
     <p>Copyright © Dr. Keith Jones, LLC | All Rights Reserved</p>

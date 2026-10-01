@@ -22,24 +22,30 @@ beside it:
 | Slides link | always — the deck itself |
 | 🧩 Zeek scripts | a non-empty `scripts/` folder exists |
 | 📄 Transcript | `transcript.txt` exists |
+| 🔵 Facebook (blue button) | `facebook:` in the deck's frontmatter |
 
 Not every episode has every link, and that is fine: a missing file just means a
-missing chip.
+missing chip. YouTube is always the red button and Facebook always the blue
+one; episodes without a `facebook:` line simply show no Facebook button.
 
-The only thing that cannot be detected is the video, since it lives on YouTube.
-Add its id to the deck's frontmatter once the episode is up:
+The only things that cannot be detected are the videos, since they live on
+YouTube and Facebook. Add their links to the deck's frontmatter once the
+episode is up:
 
 ```yaml
 ---
 theme: default
 title: 'SmartApeSG ClickFix — Unidentified RAT → NetSupport RAT'
 canvasWidth: 900
-youtube: dQw4w9WgXcQ    # omit this line and the card shows "Video soon"
+youtube: dQw4w9WgXcQ    # omit this line and the card shows "YouTube soon"
+facebook: https://www.facebook.com/UnpackThePCAP/videos/1234567890  # optional
 draft: true             # optional: build the deck but hide it from the site
 ---
 ```
 
-Slidev ignores both keys, so they cost the deck nothing.
+Slidev ignores these keys, so they cost the deck nothing. Episodes without a
+Facebook video carry no `facebook:` line and no Facebook button; the generic
+show page is linked from the header instead.
 
 Episode numbers are derived from date order rather than stored, so publishing
 episodes out of chronological order would renumber them. `draft: true` is
@@ -57,7 +63,7 @@ npm run ep -- episodes/260730-Pol  # folder -> number, and a fragment is enough
 ```
 
 ```
-  EP 2  2026-07-30  Polish "Powiadomienie" JS Campaign  [video, scripts, transcript]
+  EP 2  2026-07-30  Polish "Powiadomienie" JS Campaign  [youtube, scripts, transcript]
         episodes/260730-Polish-Powiadomienie-JS-Campaign
 ```
 
