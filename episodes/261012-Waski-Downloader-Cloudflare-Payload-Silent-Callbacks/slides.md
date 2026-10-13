@@ -2,7 +2,6 @@
 theme: default
 title: 'Waski Downloader — Cloudflare Payload, Silent Callbacks'
 youtube: 9L2jrtzSX6Q
-facebook: https://www.facebook.com/122102994639505526/videos/1409359814146583
 canvasWidth: 900
 lineNumbers: true
 routerMode: hash
