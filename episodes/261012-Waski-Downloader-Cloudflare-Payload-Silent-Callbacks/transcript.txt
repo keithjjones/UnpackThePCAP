@@ -1,0 +1,972 @@
+00:00:00:00 - 00:00:04:38
+Keith
+Welcome back to Unpack the PCAP. I'm, Keith. Let's crack open another PCAP.
+
+00:00:04:53 - 00:00:13:32
+Keith
+Today we're looking at the Waski Trojan Downloader. It's a C++ sample that pulls its payload through Cloudflare's TLS infrastructure.
+
+00:00:13:37 - 00:00:25:51
+Keith
+So the download, it looks like ordinary web browsing. And this sample's from September 3rd, 2026, and it's interesting because the malware piggybacks on Cloudflare IPs.
+
+00:00:25:55 - 00:00:30:16
+Keith
+And that makes the malicious TLS sessions look like just routine web traffic.
+
+00:00:30:21 - 00:00:40:21
+Keith
+It's kind of like stashing a body at the county landfill. Technically, it's findable, but nobody's going to excavate 12 million tons of garbage just on a hunch.
+
+00:00:40:26 - 00:00:49:12
+Keith
+These slides are live at UnpackThePCAP.com. Every query on this deck is there, and you can just copy and paste it and follow along.
+
+00:00:49:17 - 00:00:56:56
+Keith
+Yes, I'm, asking you to paste code off the internet into a terminal, and I'm, aware of what this episode is about. Do it anyways.
+
+00:00:57:01 - 00:01:21:21
+Keith
+Before we get started, everything here is from publicly available sources, so all the data is from Triage sandbox. You can get the PCAP there, you can get the behavioral reports and the network reports all from Triage sandbox. Every IP, domain, hash and time stamp is backed by the PCAP itself or the sandbox report that you can just download.
+
+00:01:21:26 - 00:01:41:40
+Keith
+We ran Zeek against the PCAP to generate our own logs and some HTTP details like get requests, user agents, 301, 404 responses. They come from the Triage sandbox because Zeek, if you just run it on the PCAP, will see the outside encrypted portion.
+
+00:01:41:45 - 00:01:57:53
+Keith
+But Triage sandbox is able to decrypt the inside portion and give you what those HTTP requests were so you can actually see what happens. And therefore, when you get a PCAP to the service, you get a little more information than you would if you were just to see it on the network.
+
+00:01:57:57 - 00:02:03:05
+Keith
+And it is useful for showing how some of this detection can work and so forth.
+
+00:02:03:05 - 00:02:14:51
+Keith
+Everything here is public. I'm, the true crime podcast of cybersecurity. Somebody else did the crime. I show up afterward with a nice microphone and too much confidence.
+
+00:02:14:56 - 00:02:30:20
+Keith
+Okay, we have 10 sections covering the Waski Downloader's network behavior from the first DNS lookup all the way through the last failed callback. And you'll probably say, why are we looking at this sample if there's failed callbacks?
+
+00:02:30:25 - 00:02:42:45
+Keith
+Well, it's the Cloudflare portion that is actually interesting, and we'll talk about some of the implications if you were to try to block this sample of actual benign traffic you would accidentally block.
+
+00:02:42:52 - 00:02:47:35
+Keith
+So stay tuned, and I'll describe all that throughout this episode.
+
+00:02:47:40 - 00:03:01:57
+Keith
+So 10 sections for a file smaller than a selfie. And to be fair, your selfie never retried shaf.in website 11 times in 78 seconds. so let's fire up Zeek and see what it says.
+
+00:03:02:02 - 00:03:16:57
+Keith
+So here's a flow diagram of the malware activity and you can see two destinations and in those two destinations there's two completely different hiding strategies but behind it all it's a It's the same TLS client trying to talk to both of them.
+
+00:03:16:58 - 00:03:23:00
+Keith
+And you'll see we're able to prove that and look at the fingerprint a little later in a future slide.
+
+00:03:23:05 - 00:03:36:03
+Keith
+The domain packaging-labeling.com sits behind Cloudflare. And the sandbox, the Triage sandbox, decrypted the TLS. And it found a get request for slash images slash full slash wav.exe.
+
+00:03:36:03 - 00:04:13:01
+Keith
+Now, when that request was made, the payload is already gone. It got a 404 but we see five TLS sessions all carrying one identical ja3, ja4 fingerprint and that's the fingerprint that I was talking about a little earlier where we can fingerprint these TLS sessions and try to group them for detection purposes. Now we know that shaf.in it resolves to a straight to a bare Indian server. There's no CDN, no proxy. There's 11 TCP connections but only six got as far as a TLS client hello and every one of
+
+00:04:13:01 - 00:04:23:07
+Keith
+those failed. So there was zero response bytes and this is where the two fingerprints between the JA3 and the JA4 they start to alternate.
+
+00:04:23:12 - 00:04:50:04
+Keith
+Now I'm, calling shaf.in the callbacks because I'm, not 100 % sure if it's command and control because in these connections no application data was actually transferred. So I don't have enough evidence to say hey this is definitely a command and control or hey this is definitely a failover for the other hosts that it couldn't reach um so for now I'm, just going to call it a callback or maybe a failover throughout because we don't really know what it is.
+
+00:04:50:04 - 00:05:28:07
+Keith
+All right so the same malware uses the same TLS client profiles for both domains. Both the packaging labeling and the shaf.in. Now these fingerprints alone aren't proof of anything, they're just fingerprints of you know TLS connections and other applications could order things just perfectly and also fit what this malware is using for its fingerprint. So if you look at just fingerprints you could get some false positives but if you start looking at the fingerprint plus these domains that we
+
+00:05:28:07 - 00:05:47:52
+Keith
+highlighted and retrying every few seconds that could be your signal in this case. So this malware seemed like it ordered from a restaurant that shut down six months ago and then it called a friend and that friend let it ring 11 times and this was the saddest 78 seconds in this PCAP.
+
+00:05:47:52 - 00:06:21:46
+Keith
+Per the Triage analysis this Waski downloader it's a c++ downloader that scores a perfect 10 out of 10 on their threat scale and at 19 kilobytes it's tiny. You can think of it as just the opening act. It doesn't do the actual damage to your computer itself it just sets the stage for whatever comes next. And I have the hashes on the screen if you're playing along at home. Now I'm, just mentioning you're going to see these IOCs throughout my slides and I'll list them fully one time and then later on
+
+00:06:21:46 - 00:06:37:42
+Keith
+I'll probably truncate them because I only have so much real estate per slide so I've got to make things fit so in this case you can see uh the full hash but later on you're going to see some dots in here and if you ever need any of them just go back to the first time I referenced them and you'll find the full value.
+
+00:06:37:42 - 00:07:14:09
+Keith
+So this MD5 and SHA256, these are straight from the Triage report. And one thing that will confuse you if you follow the Triage link, the name of the file, the sample that they uploaded was the date and then an MD5 hash and then the phrase e-l-e-x underscore Wannacry dot e-x-e. And that's just naming noise from whoever or whatever collected that sample and it's not a verdict, okay? Triage's own tags on this sample say family Waski downloader and discovery it doesn't say a ransomware
+
+00:07:14:09 - 00:07:25:13
+Keith
+anywhere on the tag. And nothing in the behavior looks like encryption so it's a downloader, okay? Not ransomware even though it has Wannacry in its name on Triage.
+
+00:07:25:13 - 00:07:28:14
+Keith
+The file name on the sample says Wannacry.
+
+00:07:28:18 - 00:07:41:54
+Keith
+It's not. And somewhere upstream, a collection pipeline took one look at this thing and just guessed. And now that guess is going to follow this sample around the rest of its life like a bad high school nickname.
+
+00:07:41:59 - 00:07:48:08
+Keith
+All right, so next, let's look at what the sandbox actually saw this sample do.
+
+00:07:48:13 - 00:08:01:22
+Keith
+So here's some behaviors the sandbox observed the sample doing. First thing is it reads control panel, international, geo nation for the country code, and then it reads control NLS language for the system language.
+
+00:08:01:27 - 00:08:20:23
+Keith
+Triage's own words in the report are likely geofence. So it's saying the malware wants to confirm it's on the right target before downloading anything. Because sometimes these malware, they'll, for instance, if you're hostile with Iran, might check to see if the computer's in Iran before it actually does its dirty deeds.
+
+00:08:20:30 - 00:08:26:00
+Keith
+And then if it's anywhere else in the world, it may just be benign. That's an example of geofencing.
+
+00:08:26:05 - 00:08:40:47
+Keith
+So second, this malware enumerates physical storage devices. And the Triage report describes this as attempting to interact with connected storage and optical drives. And it tags it system information discovery.
+
+00:08:40:51 - 00:08:55:37
+Keith
+Okay. So it's saying this sample performs system information discovery. Now, it's tempting to call this as an anti-virtual machine check. But nothing in the sandbox data actually says that. So I'm, not going to go that far and label that.
+
+00:08:55:37 - 00:09:14:29
+Keith
+Okay, third, and this one kind of reframes this episode, the parent wav.exe writes a codecsupdater.exe into the user's temp directory, and it runs it. The 19 kilobyte sample we just hashed is done at 766 milliseconds and terminates.
+
+00:09:14:34 - 00:09:35:10
+Keith
+The child starts at 750 milliseconds and never exits. So by the time any malicious traffic leaves this box, the only malware still running is this codecsupdater.exe PID 3932. And this is the child of the wav.exe I talked about earlier.
+
+00:09:35:15 - 00:09:49:52
+Keith
+So to be precise about it, not every packet in this capture is the malware. Okay. Most of them are just Windows being Windows. There's telemetry, there's updates, there's OSCP, and we'll spend a slide on that noise later.
+
+00:09:49:57 - 00:10:24:47
+Keith
+What the child owns is the malicious half, the package labeling.com sessions and every callback to shaf.in. So when I say the malware connects to shaf.in I mean the dropped child the codecsupdater.exe not the file you'd get from Triage's download button which is the wav.exe. That distinction matters if you're hunting. Okay both files are about 19 kilobytes but the MD5s tell you that the content is completely different so the parent and the child are not the same thing.
+
+00:10:24:52 - 00:10:29:04
+Keith
+These hashes again are on the IOC list that we talked about throughout this episode.
+
+00:10:29:09 - 00:10:45:30
+Keith
+Now this also explains the user agent that we'll see later, and the user agent is updates downloader and it's just codecsupdater.exe basically ratting out on itself that is not a legitimate application.
+
+00:10:45:35 - 00:10:54:08
+Keith
+So this malware enumerates your drives like a burglar counting the TVs before whether the job is even worth doing.
+
+00:10:54:13 - 00:11:06:15
+Keith
+codecupdater, the name is the technique. It's engineered so your eye just slides right off it in task manager, right? It's like the beige sedan of executables.
+
+00:11:06:20 - 00:11:26:43
+Keith
+All right, so now we're going to get Zeek involved. We generate the Zeek logs by running Zeek dash c dash r against this PCAP and I like to use this this variable where it's default underscore logdir equals output and what that does is it takes all your logs that Zeek creates and puts it into a subdirectory and just kind of keeps things tidy for you.
+
+00:11:26:43 - 00:11:39:27
+Keith
+Now Zeek won't create that directory automatically for you. It will... you you could just do like a make directory or in your Windows explorer just right click and create a directory before you run that Zeek command.
+
+00:11:39:27 - 00:11:52:37
+Keith
+Now Zeek will not create that output directory for you but it will however error once per log writer so you fully appreciate the scale of what you've done if you don't make the directory.
+
+00:11:52:42 - 00:11:59:35
+Keith
+So everything else in this deck it runs from the same directory so the paths throughout my slides will stay consistent all the way through.
+
+00:11:59:40 - 00:12:15:38
+Keith
+Now if you're wondering what the dash C flag is that just tells Zeek to ignore check sums and that's kind of standard for offline analysis. I've been using Zeek for close to a decade now and I've always used dash C when I've imported PCAPs because it makes the errors go away.
+
+00:12:15:38 - 00:12:27:26
+Keith
+Now the JA3 and JA4 arguments load the two ZKG packages that add the TLS fingerprints. Zeek can't just automatically load this itself otherwise we have to say that we want it.
+
+00:12:27:26 - 00:12:37:06
+Keith
+And once we load it those new fields will start to appear in our SSL log and we'll come back to what they actually compute to later.
+
+00:12:37:11 - 00:12:53:34
+Keith
+Now, when you run Zeek, there are eight log files that come out of this capture that the capture is only two and a half minutes long. There's about 1 ,492 packets over about 150 seconds, and it's about 140 kilobytes all in.
+
+00:12:53:39 - 00:13:12:17
+Keith
+The victim in this PCAP is 10.127.0.5. It's a private IP address. So this was captured on an internal network, which is exactly what we should expect for a malware sandbox. You can imagine they have probably virtual machines running on an internal network that pushes these samples to.
+
+00:13:12:22 - 00:13:18:38
+Keith
+They execute them on Windows, record all the PCAPs, and then shut it down and restore it back to its original state.
+
+00:13:18:38 - 00:13:40:22
+Keith
+Now, this capture, this PCAP capture is noisy. There's a lot of Microsoft telemetry, and that's pretty much normal for Microsoft. Okay, it's our job to find the needle in this haystack. So in this PCAP, there's actually two ICMP packets in the entire capture, and both are the gateway complaining that someone's packets are too big.
+
+00:13:40:27 - 00:13:47:02
+Keith
+So the router's whole contribution to this PCAP in this incident is just filing a noise complaint.
+
+00:13:47:02 - 00:13:56:34
+Keith
+There's 19 ARP frames, and nobody has voluntarily read an ARP frame since 2004, and we're not going to start in this episode today.
+
+00:13:56:39 - 00:14:09:10
+Keith
+And eight log files from 150 seconds of traffic. And Zeek is like the coworker who minutes every meeting. It's insufferable in stand-up, but indispensable later on during an incident.
+
+00:14:09:10 - 00:14:22:53
+Keith
+Now on this slide, let's confirm the victim. So every outbound connection originates from 10.127.0.5, and that's our infected host. That's the malware sandbox. There's another host we see at 10.127.0.1.
+
+00:14:22:58 - 00:14:33:41
+Keith
+That's the gateway of this internal network. It's not a second victim. It's just the other side of the communication of this ICMP flow we talked about earlier.
+
+00:14:33:46 - 00:14:35:19
+Keith
+Nothing suspicious.
+
+00:14:35:24 - 00:14:51:34
+Keith
+So here you have the DNS query breakdown, and there's 13 unique names, and it's basically a Microsoft family reunion. Three entries don't belong, the package labeling.com, its www variant, and the shaf.in callback host we'll visit later.
+
+00:14:51:34 - 00:15:09:26
+Keith
+There's one DNS query each, and it's just hiding in plain sight like they're just avoiding a group photo. Package-Labeling.com is a name tag that reads, definitely not a predator. No legitimate business has ever had to work that hard at sounding boring.
+
+00:15:09:31 - 00:15:19:20
+Keith
+So before we start running Zeek queries, we need to install the DuckDB Zeek extension written by Yacin Nadji.
+
+00:15:19:25 - 00:15:23:59
+Keith
+This extension provides the read underscore Zeek function, and that reads Zeek TSV files natively.
+
+00:15:23:59 - 00:15:32:44
+Keith
+And then you have this INET module extension that handles the IP address column type. So we can do searches within subnets, for instance.
+
+00:15:32:49 - 00:15:45:54
+Keith
+And force install, because after 30 years in cybersecurity, I've learned that everything works better when it's a little scared of you. The malware executed for 150 seconds, and I've spent longer than that explaining DuckDB.
+
+00:15:45:59 - 00:15:51:08
+Keith
+So one of us is the real threat here, and it's not the malware.
+
+00:15:51:13 - 00:16:12:07
+Keith
+So let's break down the traffic by protocol. We have 66 TCP rows, 20 UDPs, and 1 ICMP. And be very careful how you read that TCP number. Those are con.log rows, not necessarily connections. The hosts only used 45 source ports, and it picked a fresh one for every new connection.
+
+00:16:12:11 - 00:16:26:38
+Keith
+So 45 is closer to the real count. The extra 21 rows are just Zeek closing out unanswered SYN attempts after five seconds, which means a client retransmitting into silence. That gets logged several times over in Zeek.
+
+00:16:26:38 - 00:16:30:32
+Keith
+We watched that happen in the shaf.in slides coming up.
+
+00:16:30:32 - 00:16:48:39
+Keith
+The UDP is entirely DNS. We have 22 queries riding on those 20 rows, and all are going to 8.8.8.8, which is Google's DNS server. And the TCP is where the action is. You got TLS, HTTP, and the suspicious connections.
+
+00:16:48:44 - 00:16:59:49
+Keith
+So 45 connections in 150 seconds. 11 of them got back nothing, not one byte. I have sat in sprint plannings with exactly that throughput.
+
+00:16:59:54 - 00:17:09:26
+Keith
+And you have one ICMP flow, and it's just the gateway telling the host that its packets are too big. And it's not a ping. Sorry, Captain Ramius.
+
+00:17:09:31 - 00:17:33:22
+Keith
+Let's isolate the malicious DNS queries. We have three domains: the packaging labeling.com it resolved first at 11:22:20. The capture starts at 11:22:17 so that's about 2.8 seconds in and by then, the parent had already exited and dropped the child, and that was the only malware process running.
+
+00:17:33:27 - 00:17:39:41
+Keith
+Then the package labeling.com and the shaf.in happened roughly 67 seconds later.
+
+00:17:39:41 - 00:17:59:01
+Keith
+The package labeling.com resolves to 104.21.27.45, and 172.67.168.231. These are classic Cloudflare Anycast, and we'll confirm that with a Whois lookup here in a few minutes.
+
+00:17:59:06 - 00:18:22:04
+Keith
+The Package-Labeling.com resolves to the same two IPs, and note that the malware didn't decide to try the WWW host on its own. This happened about a second later after the first apex session that actually completed the handshake because the server answered that one with a 301 and it pointed to its www host.
+
+00:18:22:09 - 00:18:27:23
+Keith
+So we'll see that redirect here in a slide or two in the future.
+
+00:18:27:28 - 00:18:41:43
+Keith
+The shaf.in resolves to a single IP address of 103.212.120.166. And whois shows this is MilesWeb, not a known CDN provider, and it's also confirmed on this next slide.
+
+00:18:41:48 - 00:18:54:26
+Keith
+So the malware honors HTTP redirects. It reads the location header. It respects the standard. It's going to die having done absolutely everything correctly except the crime.
+
+00:18:54:31 - 00:19:08:56
+Keith
+Before we look at TLS, let's confirm who owns these IP addresses. WhoIs lookups against ARIN and APNIC. Both the packaging-labeling.com IPs come back to Cloudflare, Inc., and that's a confirmed Anycast proxy.
+
+00:19:09:00 - 00:19:28:48
+Keith
+The Shaf.in, MilesWeb Internet Services, is an Indian hosting provider. And as far as I can tell, no CDN, no CloudFlare, no hiding. It's just a normal IP address. And this matters because the CloudFlare IP addresses that we talked about earlier are shared across millions of sites.
+
+00:19:28:53 - 00:19:49:20
+Keith
+Blocking by IP address not only would block the maliciousness, but it would block many, many, many, many innocent customers. So when we detect and block, it has to be done by domain or TLS fingerprint or something else that's not just an IP address.
+
+00:19:49:25 - 00:20:04:59
+Keith
+So sure, go ahead, block these Cloudflare IPs. You'll take out a respectable fraction of the Internet to stop a 19-kilobyte downloader. It's like having a wasp problem in your house and you just decide to burn down your whole house.
+
+00:20:05:04 - 00:20:13:03
+Keith
+Here you can see five TLS sessions to packaging-labeling.com. They're all TLS 1.2, and you can tell by the version column.
+
+00:20:13:08 - 00:20:20:16
+Keith
+So the first session fails. We see that with established equals false, and the next two succeed with new handshakes.
+
+00:20:20:21 - 00:20:38:36
+Keith
+And we see established equals true but resumed equals false and then the last two resume the connections because you see resumed equals true. So we see five TLS connections to a server that had already told it no so this is a downloader that just hears a 404 and it hears not yet.
+
+00:20:38:41 - 00:20:49:51
+Keith
+Resumed TLS sessions skip the cert exchange and they use a previously negotiated session so So the whole cert chain will be null in the logs for those connections.
+
+00:20:49:56 - 00:21:00:10
+Keith
+So if we filter on the chains that are not null in the logs, that gives us three connections that actually completed the full handshake and received the chain.
+
+00:21:00:15 - 00:21:08:54
+Keith
+These are the only connections where we can pull the full cert chain. And in the next slide, we're going to prove that the three shared all the same cert chain.
+
+00:21:08:59 - 00:21:15:50
+Keith
+Resumed sessions skip the cert exchange, so it seems that even threat actors have their own loyalty programs.
+
+00:21:15:55 - 00:21:28:01
+Keith
+To prove all three share the same cert chain, we're going to hash the cert chain array and look at the count. And then we'll use some SQL to group them. And you see here, there's one hash, the count equals three, so it's confirmed.
+
+00:21:28:06 - 00:21:29:21
+Keith
+They all use the same one.
+
+00:21:29:21 - 00:21:41:17
+Keith
+So any three of these connections will work for pulling the search chain. And we're just going to pick the one that ends in LPI because it's established and not resumed, and it's probably the cleanest example.
+
+00:21:41:22 - 00:21:56:35
+Keith
+There are three full handshakes and one identical cert chain. This attacker bought exactly one certificate it and is going to get every penny of value out of it. On the next slide we're going to pull the full cert chain for this connection.
+
+00:21:56:40 - 00:22:13:14
+Keith
+There you can see the complex SQL to pull the full cert chain for one connection and we see the three levels: the leaf, the intermediate, and the root. And we picked LPI the connection LPI because it's a non-resumed connection and resume connections don't resend the cert chain.
+
+00:22:13:28 - 00:22:20:11
+Keith
+So the cert chain is null in those instances and is not null in this instance.
+
+00:22:20:16 - 00:22:30:34
+Keith
+The leaf is signed by WE1, a Google Trust Services Intermediate. And WE1 is signed by GTS root R4, a Google root CA.
+
+00:22:30:45 - 00:22:40:28
+Keith
+So GTS root R4 is cross-signed by global sign root CA, a well-known public root. So this is a legitimate publicly trusted certificate chain.
+
+00:22:40:33 - 00:22:45:40
+Keith
+The attacker didn’t forge it. They obtained a real cert from Google Trust Services.
+
+00:22:45:44 - 00:23:03:12
+Keith
+And this means the attacker controls the domain and passed Google's domain validation checks. The cert is valid, publicly trusted, and chaining to a known root. So the malware has a certificate from Google Trust Services, and my self-signed certs get rejected by Chrome.
+
+00:23:03:17 - 00:23:08:01
+Keith
+Apparently malware has better CA relationships than I do.
+
+00:23:08:06 - 00:23:25:51
+Keith
+Now here's where the sandbox earns its keep. Zeek only sees TLS connections to packaging-labeling.com from the outside, and it only sees the encryption portion. Now there's HTTP inside the encrypted portion that the sandbox is able to tell us about.
+
+00:23:25:56 - 00:23:43:58
+Keith
+The Triage sandbox decrypted the TLS and revealed that the actual HTTP request is get slash images slash full slash wav.exe with a hard-coded user agent of updates downloader. So it's trying to download a Windows executable disguise as a WAV audio file.
+
+00:23:44:03 - 00:23:47:55
+Keith
+Subtle.
+
+00:23:48:00 - 00:23:56:34
+Keith
+The server returned a 301 redirect to the www subdomain. The location header points at the exact same path. And then, when the connection happens, there's a
+
+00:23:56:34 - 00:24:04:11
+Keith
+404. So the malware follows a redirect and asks again, which is why you'll see the two connections per attempt.
+
+00:24:04:11 - 00:24:29:19
+Keith
+And it does the whole thing twice a 301 then a 404 at 11:23 then a 301 and a 404 again at 11:24. Four requests for a wav.exe in total. That file that wav.exe was not on the web server but the site itself is still serving traffic normally so this is a live host missing one payload and probably not abandoned infrastructure.
+
+00:24:29:24 - 00:24:45:50
+Keith
+The server didn't just say no, it sent a 301 to the www subdomain, the exact same path, so the malware could go ask again somewhere else and get told no there instead. That's not infrastructure failure, that's just customer service.
+
+00:24:45:55 - 00:24:59:48
+Keith
+Slash images slash full slash wav.exe. Three lies in one URL. The directory says images, the name says audio, and the extension says executable. And that's just commitment to the bit.
+
+00:24:59:53 - 00:25:14:37
+Keith
+So we started with the Cloudflare IPs from the DNS slide. Filtered conn.log to these IPs and sorted by response bytes. And our top two responses are 68 kilobyte and 65 kilobyte. And they are the 404 pages.
+
+00:25:14:42 - 00:25:36:27
+Keith
+The third one, which is 4.8 kilobyte, is the 301 redirect. So these 404s, they came from the real website, not Cloudflare. And we know this because of the CF-cache-status says dynamic. And if you do some research online, Cloudflare's cache docs define that asset as being ineligible for cache.
+
+00:25:36:32 - 00:25:46:25
+Keith
+So the request went all the way to the origin web server without a cache lookup. So that's the site's own themed 404 page, all 68 kilobytes of it.
+
+00:25:46:25 - 00:25:51:32
+Keith
+So the site is live and well, it just doesn't have WAV.exe anymore.
+
+00:25:51:37 - 00:25:56:57
+Keith
+68 kilobytes of 404, three times larger than the malware itself.
+
+00:25:57:02 - 00:26:01:28
+Keith
+That error page has more content than the malware's entire career.
+
+00:26:01:33 - 00:26:13:50
+Keith
+So this connection ID that ends in CF is about 500 bytes sent and 68k bytes received. The Triage sandbox decrypted the TLS on this session and we see it's the 404.
+
+00:26:13:55 - 00:26:30:05
+Keith
+500 bytes of question, 68 kilobytes of no. That is the reply to substance ratio of a legal department. The S1 flag means nobody ever hung up. The capture ends with both sides still politely pretending the conversation is going somewhere.
+
+00:26:30:10 - 00:26:48:58
+Keith
+shaf.in is a second destination, and the Whois shows MilesWeb, not a known CDN, just a domain pointing to a single IP address. The timing is the interesting part. The first bytes of the 404 hit the wire at 70.7882 seconds into this capture.
+
+00:26:49:03 - 00:27:11:10
+Keith
+And the DNS query goes out at 70.7906, two and a half milliseconds later, while the 68 kilobyte error page is still streaming in and won't finish arriving until 70.87 seconds. So it read the status line, wrote that host off, and moved on without even waiting for that error body to come back.
+
+00:27:11:10 - 00:27:43:57
+Keith
+Then it alternates. It hammers shaf.in it goes back and re-requests the wav.exe from the other domain and then it collects another 404 and it goes back to shaf.in and that's part of the reason why it's difficult to tell what that shaf.in is without more context. So the interleaving reads more like a backup download source than a command and control channel but no handshake to shaf.in ever completed so no application data was ever exchanged. And I'm, not going to tell you which one it was
+
+00:27:43:57 - 00:27:57:00
+Keith
+because the capture also cannot tell you which one it was. shaf.in that's the four letters and a country code and that's the domain equivalent of a burner phone bought with exact change.
+
+00:27:57:05 - 00:28:06:20
+Keith
+It read the 404 status line and was already dialing shaf.in two and a half milliseconds later while the error page was still arriving.
+
+00:28:06:25 - 00:28:11:45
+Keith
+That's not efficiency. That's a downloader that's probably been let down before.
+
+00:28:11:50 - 00:28:23:07
+Keith
+So six TLS sessions to shaf.in and out of the 11 TCP connections and all six of them failed. All six of them ran exactly 5.077 seconds before closing.
+
+00:28:23:11 - 00:28:29:46
+Keith
+The history on every one of these connections show that the server's FIN was sent first.
+
+00:28:29:51 - 00:28:42:57
+Keith
+The server completes the handshake TCP half, acknowledges the client hello, sits on it for five seconds, and then just hangs up. And that's the server side idle timeout. It's what sets the malware's retry cadence.
+
+00:28:43:01 - 00:28:48:57
+Keith
+The gap between the attempts are 5.08 seconds because the malware reconnects the instant it gets dropped.
+
+00:28:48:57 - 00:29:02:04
+Keith
+And we're going to talk about the TLS fingerprinting using JA3 and JA4 on the next slide. So you have six attempts, zero responses. The server didn't even have the courtesy to say, new phone, who dis?
+
+00:29:02:09 - 00:29:36:35
+Keith
+JA3 and JA4 are TLS client fingerprinting methods, and these are the two packages we installed way back in the log generation slide. They add the JA3, JA3S, JA4, JA4S fields into SSL.log. And without those these packages those columns don't exist which is why we had to install it and we run it when we run Zeek so that those fields show up. The JA3 gives you a 32 character MD5 hash and it's simple and widely supported because it's been out there for a long time and the newer JA4 gives
+
+00:29:36:35 - 00:29:54:35
+Keith
+you a human readable string with more detail. It gives you a version, a cipher count, an extension count. It also gives you this thing called ALPN, which is Application Layer Protocol Negotiation. And this is when the client lists the protocols it can speak right in the client hello.
+
+00:29:54:39 - 00:30:02:51
+Keith
+And this gets agreed to during the handshake instead of costing a round trip later on. Now, none of the malware's 11 connections do this.
+
+00:30:02:51 - 00:30:04:12
+Keith
+That's important, okay?
+
+00:30:04:12 - 00:30:17:54
+Keith
+These are things that survive domain rotation. So the TLS stack itself stays the same even when the infrastructure changes. So we should expect these fingerprints also to stay the same.
+
+00:30:17:54 - 00:30:24:10
+Keith
+You know, the attacker can burn the domain, rotate the IP, rename the binary, and rehost on a different continent.
+
+00:30:24:15 - 00:30:35:45
+Keith
+And the handshake still comes out byte identical every time because nobody recompiles a TLS library to hide. It's the DNA evidence left by someone who took the trouble to wear gloves.
+
+00:30:35:50 - 00:30:40:39
+Keith
+You see here the two JA3 and JA4 client fingerprints from the malicious connections.
+
+00:30:40:39 - 00:31:17:29
+Keith
+And one caveat, there's no global registry that says these hashes belongs to Waski Downloader. So any app built on the same TLS stack with the same config is going to produce identical hashes. That's just how it is. Okay. But the proof is right in this capture. The benign Windows OS traffic carries a JA4 that has some identical portions: the b and the c sections to the malware's b and c sections of their fingerprints. And only the extension count and the ALPN that I talked about earlier change so
+
+00:31:17:29 - 00:31:44:49
+Keith
+you can see that it's the same TLS library but in this case it's a different caller. So we're able to differentiate it. So what you want to do is you want to use these hash matches as kind of like a lead. Not necessarily a verdict. You know we're going to write a JA4 rule later on and it's going to fire on that fingerprint by itself and that's deliberate because it's a hunting rule where we want to cast a wide net to see what's out there on our network.
+
+00:31:44:54 - 00:31:56:08
+Keith
+What makes it actionable is the destination and the retry behavior around it. That's what's going to make a human look at that and say, okay, well, this is probably the Waski downloader versus something that may be benign.
+
+00:31:56:08 - 00:32:09:35
+Keith
+So this is perfect camouflage accidentally achieved and then ruined by dropping ALPN. And it's like a ghillie suit with a giant name tag on it. So next slide, let's go ahead and decode the JA4 strings.
+
+00:32:09:40 - 00:32:49:01
+Keith
+Let's go ahead and decode these JA4 strings using the FoxIO spec. Now both fingerprints end in 00 so it means no ALPN and most modern browsers typically negotiate ALPN and this is a strong signal that the malware's TLS stack doesn't transmit the ALPN. And it's one of those things you can look for and say okay well this might be a malware connection versus a likely benign browser connection. And then you can look and see the TLS 1.2 with 19 ciphers and 8 extensions and it's the same TLS stack that
+
+00:32:49:01 - 00:32:53:26
+Keith
+the operating itself uses. And I can prove that rather than assume it.
+
+00:32:53:31 - 00:32:58:36
+Keith
+Pull the raw client hello's out of this PCAP and the malware offers the same 19 cipher suites
+
+00:32:58:36 - 00:33:04:44
+Keith
+in the same order with the same extensions as the Windows telemetry client hello's from the same box.
+
+00:33:04:49 - 00:33:16:26
+Keith
+The only difference is that the malware emits ALPN extension 16 and nothing else changes. That's why B and C halves of the JA4 match the benign traffic exactly.
+
+00:33:16:26 - 00:33:38:37
+Keith
+The second one is the TLS with 1.0 with seven ciphers and seven extensions and that's very unusual in 2026 and it doesn't even send signature algorithms. Parts B and C are truncated hashes and they're useful for grouping but the A section is what makes these connections in this sample rare.
+
+00:33:38:42 - 00:33:47:37
+Keith
+So TLS 1.0 in 2026 is such a loud signal that the encryption is actively helping you find it. It brought a disguise that glows.
+
+00:33:47:37 - 00:34:08:04
+Keith
+You see here that all five sessions use the same JA4 fingerprint there's no variation. JA4 is the modern standard. JA3 is dated and a little less granular but JA4 captures at least in this sample. This is what matters. The alternation we saw earlier only happens on shaf.in.
+
+00:34:08:09 - 00:34:19:33
+Keith
+On the next slide we're going to take a look at shaf.in. So five sessions, one fingerprint... not one attempt to vary it. This malware packed a single outfit for a five-day conference.
+
+00:34:19:38 - 00:34:35:32
+Keith
+So you see strict alternation here. You got the TLS 1.2, TLS 1.0, TLS 1.2, TLS 1.0, never two in a row. You see the payload sizes track the fingerprint exactly. You see the TLS 1.2 client hello is 174 bytes.
+
+00:34:35:37 - 00:34:51:14
+Keith
+The TLS 1.0 one is 120. And these are two hard-coded handshakes, It's not necessarily a negotiation. The gaps aren't a clean beacon interval. You have 26 seconds, then 5, then 5, then 32, then 5.
+
+00:34:51:14 - 00:34:58:11
+Keith
+It's a retry loop, not a timer, and we don't know why it swaps. The PCAP only shows the pattern and not the reason.
+
+00:34:58:11 - 00:35:04:43
+Keith
+The fallback logic works perfectly. It correctly and repeatedly falls back to a second protocol that also does not work.
+
+00:35:04:43 - 00:35:22:13
+Keith
+13 conn.log entries for shaf.in over 78 seconds, but the host only opened 11 sockets. That gap is the most useful thing on this slide. Look at the pattern first. 5 second durations with 174, 120 byte payloads alternating.
+
+00:35:22:18 - 00:35:58:35
+Keith
+Then a short.075 second connections that closed cleanly with FINs and there's no data transferred. The responding bytes column is the punchline. Not one byte ever came back. Every row that counted bytes logs a literal zero and the two single SYN rows never counted anything so they log null. Now the source port column rows two three and four are all source port four nine nine four five. That's one socket not three. It sent five SYNs over 15 seconds backing off one, two, four, then eight, and never got a
+
+00:35:58:35 - 00:36:13:23
+Keith
+single reply. Here's why Zeek split it. There is a TCP attempt, delay variable that expires an unanswered connection attempt after five seconds. The first record covers the three SYNs inside that window.
+
+00:36:13:27 - 00:36:46:11
+Keith
+Every retransmit that arrives after the record has been flushed, and it opens a brand new one, one packet, nothing to count, so orig bytes, responding bytes, and duration all come back as null. So don't read the null rows as the malware gave up after one SYN, they're the opposite. They are the retries. And same for the Cloudflare side where 11 entries are really seven sockets. Two of them split into three rows each exactly like port
+
+00:36:46:16 - 00:36:46:53
+Keith
+49945.
+
+00:36:46:53 - 00:37:05:35
+Keith
+And this is why you check source ports before you quote a connection count off of conn.log. Log lines are not connections. Conn state SF means the connection completed normally from Zeek's perspective, but every SF connection to shaf.in has zero response bytes.
+
+00:37:05:40 - 00:37:19:17
+Keith
+The malware is sending its callback and getting nothing back. So it's shouting into the void. 11 attempts in 78 seconds. That's more persistent than an ex who just discovered you have a new Netflix password.
+
+00:37:19:22 - 00:37:25:10
+Keith
+Are you there? Hello? I just want to talk. Please respond. I'll try again in five seconds.
+
+00:37:25:15 - 00:37:39:47
+Keith
+So here's the problem for the SOC analyst. 19 out of the 22 DNS queries are legitimate Microsoft and certificate validation traffic. Windows telemetry, update checks, OCSP, CRL, all normal, all noisy.
+
+00:37:39:52 - 00:37:50:26
+Keith
+The malicious domains, the packaging labeling, and shaf.in are only 3 queries out of 22, and that's only 13.6 % of the DNS traffic.
+
+00:37:50:31 - 00:37:57:05
+Keith
+So this malware hides in the benign noise. It's like shoplifting at Walmart on Black Friday.
+
+00:37:57:10 - 00:38:03:27
+Keith
+Everyone's carrying suspicious bags. You need a really good reason to stop one specific person.
+
+00:38:03:32 - 00:38:11:01
+Keith
+Three malicious queries buried in 19 Microsoft ones. The malware didn't need encryption. It had Windows doing the noise for free.
+
+00:38:11:01 - 00:38:29:08
+Keith
+We established MilesWeb back on the ownership slide and I'm, not going to be running that whois again. But what GEOIP adds to the detail is a city and a country and a network number. We see that's commodity infrastructure, not APT grade, not sophisticated it's just a cheap VPS.
+
+00:38:29:13 - 00:38:32:50
+Keith
+And it's worth noticing that the GeoIP agrees with the whois here.
+
+00:38:32:55 - 00:38:37:22
+Keith
+Hold on to that because that's on the very next slide we'll see that it doesn't agree.
+
+00:38:37:27 - 00:38:50:02
+Keith
+City, state, ASN, GeoIP hands over the whole address without being asked. And for once it's telling the truth. That's what you get when the target is one server sitting in the one place it's always ever been.
+
+00:38:50:07 - 00:38:53:17
+Keith
+So enjoy it. It does not last past this slide.
+
+00:38:53:17 - 00:39:10:14
+Keith
+Now cf-ray is a header cloudflare adds the responses and cloudflare's docs call it a hashed value in coding information about the data center and the visitor's requests. The ID is unique per request. The three letters after the dash are the data center.
+
+00:39:10:19 - 00:39:15:44
+Keith
+We only have it because a sandbox decrypted this TLS, and otherwise Zeek would have never have seen it.
+
+00:39:15:44 - 00:39:31:59
+Keith
+Now, don't trust that city. Both IPs geolocate to Toronto. But all four decrypted responses, both 301s and both 404s, and their CF ray in LHR, each with a different ID.
+
+00:39:32:04 - 00:39:37:57
+Keith
+Toronto is in Cloudflare's own list as YYZ. Both links are on the slide so you can
+
+00:39:37:57 - 00:39:49:40
+Keith
+GeoIP on anycast address is a database picking a favorite out of hundreds of announcement points. The header names an actual facility. Neither one gives you the origin. That's Cloudflare's whole product.
+
+00:39:49:45 - 00:40:03:04
+Keith
+Cloudflare is the hide-behind-the-crowd strategy of the Internet. When your traffic looks like everyone else's, nobody gets stopped at the door. It's the security equivalent of I'm, with the band. GeoIP says Toronto.
+
+00:40:03:09 - 00:40:07:44
+Keith
+The header says London, and its origin is somewhere neither of them will admit to.
+
+00:40:07:49 - 00:40:13:59
+Keith
+Three sources, zero actual addresses. That's Cloudflare working exactly as advertised.
+
+00:40:14:04 - 00:40:15:44
+Keith
+Here are some IOCs.
+
+00:40:15:49 - 00:40:27:56
+Keith
+File hashes first, domains next, then the network indicators. Yep, I know. I abbreviated on this slide. Hey, I only have so much real estate. But like I said earlier, you can actually get to these slides through Unpack the PCAP.
+
+00:40:28:05 - 00:40:35:43
+Keith
+And I have all the unabridged versions of the hashes in these slides that you can copy out. So hope to see you over there.
+
+00:40:35:48 - 00:40:55:25
+Keith
+The two file hashes in here are not one. So if you only block list the parent, the wav.exe, you're going to miss the codecsupdater.exe, and the child is the process that actually touches the network. So you're going to want to block on both of those hashes.
+
+00:40:55:30 - 00:41:01:19
+Keith
+The attacker left more fingerprints than your average toddler at a sliding glass door.
+
+00:41:01:24 - 00:41:18:36
+Keith
+Here we have three domains and one URL path. Both the bare domain and the www host are worth blocking, and it's because the campaign used both, one to deliver and one to redirect. The URL is encrypted inside TLS, so Zeek actually never saw it.
+
+00:41:18:41 - 00:41:37:50
+Keith
+It came from the Triage sandbox TLS decryption. If you have decryption on your network, you could then look for and block against this URL. If you don't, you're out of luck. I'm, sorry. So the parent process was codecsupdater.exe, and the payload was wav.exe.
+
+00:41:37:56 - 00:41:41:38
+Keith
+And you've got to give them this much. They committed to the whole audio bit.
+
+00:41:41:38 - 00:41:45:22
+Keith
+But the funny part is, then they parked it in the images folder.
+
+00:41:45:27 - 00:41:50:49
+Keith
+Here we have IPs and the JA3 and JA4 fingerprints and the user agent.
+
+00:41:50:54 - 00:42:02:25
+Keith
+The Cloudflare pair is context, not a block list entry, because if you block those IP addresses, you're going to be blocking thousands or millions of legitimate sites.
+
+00:42:02:30 - 00:42:16:59
+Keith
+So we need to look at things like the domain plus the IP address plus the user agent and things like that. The user agent is another TLS decrypted artifact from the sandbox and not something that Zeek pulled off the wire.
+
+00:42:17:05 - 00:42:22:09
+Keith
+So like I said, if you're already decrypting it, that is something you can look for on your network.
+
+00:42:22:14 - 00:42:25:27
+Keith
+And updates downloader as the user agent. I mean,
+
+00:42:25:27 - 00:42:28:13
+Keith
+at least the attacker could have made it sound like a browser, right?
+
+00:42:28:18 - 00:42:43:16
+Keith
+Here's our first detection rule. And this is SNI based. simple, effective, but also noisy. This fires whenever a TLS client hello contains one of the three malicious domains as the server name indication.
+
+00:42:43:21 - 00:42:51:29
+Keith
+It sits at the domain names tier of the pyramid of pain. Easy for the attacker to rotate, but useful for immediate blocking.
+
+00:42:51:34 - 00:43:01:42
+Keith
+Domain-based detection is like putting someone's photo on a wanted poster. Effective until they shave and put on glasses but for now it works.
+
+00:43:01:47 - 00:43:14:32
+Keith
+And now we'll continue on with our detection. Note that the event connection state remove is not SSL established. I did this because every shaf.in handshake failed so if we were to handle SSL established,
+
+00:43:14:37 - 00:43:20:07
+Keith
+it's never going to fire for shaft.in and we miss the most important half of this infection in this sample.
+
+00:43:20:12 - 00:43:40:04
+Keith
+Now packaging labeling.com uses a valid cert. Okay we saw that it was Google Trust Services earlier so we can't be looking for invalid server cert notices. It’s not going to alert us to this attack and it's worse than that it's worse than just having no signal.
+
+00:43:40:09 - 00:43:55:39
+Keith
+If you were to load Zeek's protocols, SSL validate dash certs against this PCAP, you're going to get some invalid cert notices, but it's going to be for the benign Microsoft connections and not the malicious connections that we're actually looking for.
+
+00:43:55:44 - 00:44:15:17
+Keith
+So the signal here is actually inverted. All right. Just be aware of that. And so like I talked about earlier, blocking IP addresses, that's would be a bad way of trying to stop this because we would be blocking benign websites with this Anycast on Cloudflare. We've got to be looking at SNI.
+
+00:44:15:22 - 00:44:22:46
+Keith
+That SNI is going to tell us where the client is going, and if we're going to block on it, that's the point where we should be considering a block.
+
+00:44:22:51 - 00:44:35:12
+Keith
+You know, regarding the invalid certs, too, It's like we have five suspects, and all of them are our own operating system. The one guy who doesn't have an invalid cert has clean paperwork, and that's the person that did it.
+
+00:44:35:12 - 00:45:06:29
+Keith
+This is the JA4 base detection using the two known Waski fingerprints JA4 is preferred over JA3. It's human readable. There is an a section that makes it easier to understand what's unusual about the fingerprint. We're able to pick out things easily like TLS 1.0 with seven ciphers and no ALPN easily just by looking at the fingerprint. And these fingerprints ,they survive domain rotations. They can be deployed as a persistent hunting rule.
+
+00:45:06:32 - 00:45:13:31
+Keith
+So if shaft.in disappears and goes to a different domain, we should still be able to catch it if we're looking at fingerprints.
+
+00:45:13:36 - 00:45:27:30
+Keith
+And notice that this rule does not do some things. It does not look at a destination. It does not look at a SNI condition. So any process that has the same TLS stack with the same config will trip it.
+
+00:45:27:30 - 00:45:37:59
+Keith
+Now in this capture, it fires twice and both are on the malware. But if you're going to push this out into your real network, you're going to want to tune this one before you hook it up to someone's pager.
+
+00:45:38:04 - 00:45:44:06
+Keith
+Two fingerprints, no destination check. So anything running the same TLS stack sets this off.
+
+00:45:44:11 - 00:45:50:26
+Keith
+This rule is like a smoke detector mounted directly above your stove. Genuinely useful, but you'll still come to resent it.
+
+00:45:50:26 - 00:45:57:55
+Keith
+On our next slide, we're going to talk about the event handler that catches all the connections, including failed handshakes.
+
+00:45:58:00 - 00:46:11:37
+Keith
+So you can see in our detection logic here, we use connection state remove, and that catches all connections, including the failed TLS handshakes. And it generates a notice with the JA4 hash, a source, destination IP, the SNI, and whether the handshake completed.
+
+00:46:11:42 - 00:46:19:34
+Keith
+The Zeek script that catches malware by its TLS fingerprint. The bouncer doesn't care about your fake ID. He remembers the shape of your ears.
+
+00:46:19:39 - 00:46:22:41
+Keith
+So theory is great, but let's prove that these scripts actually work.
+
+00:46:22:46 - 00:46:26:51
+Keith
+We run both of them against the PCAP and we check notice.log for detections.
+
+00:46:26:56 - 00:46:42:06
+Keith
+The scariest rule in any SIEM is the one that has never fired, because you can't tell nothing happened from this has been broken since 2019. And writing the rule is the fun part. Running it is the part where you find out you typed the SNI wrong.
+
+00:46:42:11 - 00:46:47:13
+Keith
+Every detection rule works perfectly right up until the first time you run it.
+
+00:46:47:18 - 00:47:08:45
+Keith
+Luckily, in our case here, you see, our notices actually fired. There's 11 TLS sessions that carried a malicious SNI, 5 to packaging, 6 to shaf.in. We get five notices, not 11, because identifier plus Zeek's default one-hour suppression window collapses repeats of the same source, destination, and SNI.
+
+00:47:08:50 - 00:47:15:49
+Keith
+That's a feature. You want one alert per infection, not one alert every single time it happens.
+
+00:47:15:54 - 00:47:30:57
+Keith
+So two things in the output that look like mistakes, and they're not. First, www.packaging-labeling.com is listed twice. My identifier includes the responder IP, and those two sessions went to different Cloudflare addresses.
+
+00:47:31:02 - 00:47:44:15
+Keith
+There's the one that starts with the 104, and then there's the one that starts with 172. So Zeek counts them separately. Drop resp underscore h from the identifier if you want one alert per domain instead.
+
+00:47:44:20 - 00:48:01:44
+Keith
+Second, three notices share the same second, 11:24:47. Those three connections are all connection state S1, which means established but never closed. So conn state remove doesn't fire until Zeek flushes the remaining state at the end of the capture.
+
+00:48:01:48 - 00:48:06:40
+Keith
+The notice time stamp is when Zeek retired the connection, not when the client hello went out.
+
+00:48:06:48 - 00:48:16:54
+Keith
+The important line is the shaft.in. conn state removed catches the SNI from the client hello, even when the handshake fails and the server never responds.
+
+00:48:16:59 - 00:48:23:10
+Keith
+This works without SSL inspection. The SNI is visible in the client hello.
+
+00:48:23:22 - 00:48:37:59
+Keith
+Five alerts is a suspiciously pleasant number. On most days, I'd assume the sensor was unplugged. Suppression is the one feature in your entire stack designed around the fact that humans read the top of a list and nothing else.
+
+00:48:38:04 - 00:48:50:16
+Keith
+You can see that JA4 caught both fingerprints, even shaf.in, where the TLS handshake failed. The SNI is good for known domains. JA4 is good for known client behavior, regardless of a domain.
+
+00:48:50:16 - 00:48:54:04
+Keith
+Caught by the handwriting on a ransom note that never got mailed.
+
+00:48:54:09 - 00:49:08:12
+Keith
+They can change the domain, the IP, and the certificate. They cannot change the way they walk into a room. You can rotate infrastructure all day. You're still the guy who orders the same weird thing at the restaurant.
+
+00:49:08:17 - 00:49:11:14
+Keith
+All right, we're now down to our takeaways.
+
+00:49:11:19 - 00:49:24:07
+Keith
+So Cloudflare IPs are shared and GeoIP on them is fiction. Okay. You are going to want to block by domain, not IP address. So that way you're not blocking a bunch of benign websites accidentally.
+
+00:49:24:12 - 00:49:37:56
+Keith
+If you only block the samples hash that you get from Triage, you miss the process to actually touch the network. There are two hashes to this and the child is the one that matters.
+
+00:49:38:01 - 00:49:43:59
+Keith
+And before you quote the number of lines in a conn.log and say that's the number of connections, be sure to count by the four tuple first.
+
+00:49:44:04 - 00:49:54:04
+Keith
+Zeek's five-second attempt timeout inflated this capture by two rows in shaf.in and four more in Cloudflare's slide, if you were to just count by rows.
+
+00:49:54:09 - 00:50:22:12
+Keith
+The JA3 and the JA4 fingerprints survived domain rotation. The most durable detection we've got this whole thing, but the benign Windows traffic in the same PCAP differs by exactly one extension so tune this before you page somebody. The malware analysis is 90% filtering noise and 10% finding the one suspicious domain and 90% explaining to somebody why 150 seconds of traffic took you six hours.
+
+00:50:22:20 - 00:50:23:53
+Keith
+The math just doesn't work.
+
+00:50:23:53 - 00:50:36:46
+Keith
+Okay, so that's a wrap on the Waski Downloader. Short, sneaky, and persistent. Remember, the PCAP and all analysis artifacts are publicly available. You can download them, run your own queries, and build your own detection rules.
+
+00:50:36:51 - 00:50:46:15
+Keith
+You just sat through a full autopsy of a 19-kilobyte file that got a 404 from its payload server and the silent treatment from its callback host. It
+
+00:50:46:15 - 00:50:50:31
+Keith
+It failed at everything it tried, but I still got some useful content out of it.
+
+00:50:50:36 - 00:50:56:13
+Keith
+Hey, if you found this useful, please hit like and subscribe. It's how videos like this find the people who need them.
+
+00:50:56:25 - 00:51:02:04
+Keith
+Please comment with what you'd like to see me unpack next. See you next time on Unpack the PCAP.
+
