@@ -1,6 +1,6 @@
 00:00:00:00 - 00:00:04:38
 Keith
-Welcome back to Unpack the PCAP. I'm, Keith. Let's crack open another PCAP.
+Welcome back to Unpack the PCAP. I'm Keith. Let's crack open another PCAP.
 
 00:00:04:53 - 00:00:13:32
 Keith
@@ -24,7 +24,7 @@ These slides are live at UnpackThePCAP.com. Every query on this deck is there, a
 
 00:00:49:17 - 00:00:56:56
 Keith
-Yes, I'm, asking you to paste code off the internet into a terminal, and I'm, aware of what this episode is about. Do it anyways.
+Yes, I'm asking you to paste code off the internet into a terminal, and I'm aware of what this episode is about. Do it anyways.
 
 00:00:57:01 - 00:01:21:21
 Keith
@@ -44,7 +44,7 @@ And it is useful for showing how some of this detection can work and so forth.
 
 00:02:03:05 - 00:02:14:51
 Keith
-Everything here is public. I'm, the true crime podcast of cybersecurity. Somebody else did the crime. I show up afterward with a nice microphone and too much confidence.
+Everything here is public. I'm the true crime podcast of cybersecurity. Somebody else did the crime. I show up afterward with a nice microphone and too much confidence.
 
 00:02:14:56 - 00:02:30:20
 Keith
@@ -84,7 +84,7 @@ those failed. So there was zero response bytes and this is where the two fingerp
 
 00:04:23:12 - 00:04:50:04
 Keith
-Now I'm, calling shaf.in the callbacks because I'm, not 100 % sure if it's command and control because in these connections no application data was actually transferred. So I don't have enough evidence to say hey this is definitely a command and control or hey this is definitely a failover for the other hosts that it couldn't reach um so for now I'm, just going to call it a callback or maybe a failover throughout because we don't really know what it is.
+Now I'm calling shaf.in the callbacks because I'm not 100 % sure if it's command and control because in these connections no application data was actually transferred. So I don't have enough evidence to say hey this is definitely a command and control or hey this is definitely a failover for the other hosts that it couldn't reach um so for now I'm just going to call it a callback or maybe a failover throughout because we don't really know what it is.
 
 00:04:50:04 - 00:05:28:07
 Keith
@@ -96,7 +96,7 @@ highlighted and retrying every few seconds that could be your signal in this cas
 
 00:05:47:52 - 00:06:21:46
 Keith
-Per the Triage analysis this Waski downloader it's a c++ downloader that scores a perfect 10 out of 10 on their threat scale and at 19 kilobytes it's tiny. You can think of it as just the opening act. It doesn't do the actual damage to your computer itself it just sets the stage for whatever comes next. And I have the hashes on the screen if you're playing along at home. Now I'm, just mentioning you're going to see these IOCs throughout my slides and I'll list them fully one time and then later on
+Per the Triage analysis this Waski downloader it's a c++ downloader that scores a perfect 10 out of 10 on their threat scale and at 19 kilobytes it's tiny. You can think of it as just the opening act. It doesn't do the actual damage to your computer itself it just sets the stage for whatever comes next. And I have the hashes on the screen if you're playing along at home. Now I'm just mentioning you're going to see these IOCs throughout my slides and I'll list them fully one time and then later on
 
 00:06:21:46 - 00:06:37:42
 Keith
@@ -140,7 +140,7 @@ So second, this malware enumerates physical storage devices. And the Triage repo
 
 00:08:40:51 - 00:08:55:37
 Keith
-Okay. So it's saying this sample performs system information discovery. Now, it's tempting to call this as an anti-virtual machine check. But nothing in the sandbox data actually says that. So I'm, not going to go that far and label that.
+Okay. So it's saying this sample performs system information discovery. Now, it's tempting to call this as an anti-virtual machine check. But nothing in the sandbox data actually says that. So I'm not going to go that far and label that.
 
 00:08:55:37 - 00:09:14:29
 Keith
@@ -484,7 +484,7 @@ And the DNS query goes out at 70.7906, two and a half milliseconds later, while 
 
 00:27:11:10 - 00:27:43:57
 Keith
-Then it alternates. It hammers shaf.in it goes back and re-requests the wav.exe from the other domain and then it collects another 404 and it goes back to shaf.in and that's part of the reason why it's difficult to tell what that shaf.in is without more context. So the interleaving reads more like a backup download source than a command and control channel but no handshake to shaf.in ever completed so no application data was ever exchanged. And I'm, not going to tell you which one it was
+Then it alternates. It hammers shaf.in it goes back and re-requests the wav.exe from the other domain and then it collects another 404 and it goes back to shaf.in and that's part of the reason why it's difficult to tell what that shaf.in is without more context. So the interleaving reads more like a backup download source than a command and control channel but no handshake to shaf.in ever completed so no application data was ever exchanged. And I'm not going to tell you which one it was
 
 00:27:43:57 - 00:27:57:00
 Keith
@@ -672,7 +672,7 @@ Three malicious queries buried in 19 Microsoft ones. The malware didn't need enc
 
 00:38:11:01 - 00:38:29:08
 Keith
-We established MilesWeb back on the ownership slide and I'm, not going to be running that whois again. But what GEOIP adds to the detail is a city and a country and a network number. We see that's commodity infrastructure, not APT grade, not sophisticated it's just a cheap VPS.
+We established MilesWeb back on the ownership slide and I'm not going to be running that whois again. But what GEOIP adds to the detail is a city and a country and a network number. We see that's commodity infrastructure, not APT grade, not sophisticated it's just a cheap VPS.
 
 00:38:29:13 - 00:38:32:50
 Keith
@@ -712,7 +712,7 @@ GeoIP on anycast address is a database picking a favorite out of hundreds of ann
 
 00:39:49:45 - 00:40:03:04
 Keith
-Cloudflare is the hide-behind-the-crowd strategy of the Internet. When your traffic looks like everyone else's, nobody gets stopped at the door. It's the security equivalent of I'm, with the band. GeoIP says Toronto.
+Cloudflare is the hide-behind-the-crowd strategy of the Internet. When your traffic looks like everyone else's, nobody gets stopped at the door. It's the security equivalent of I'm with the band. GeoIP says Toronto.
 
 00:40:03:09 - 00:40:07:44
 Keith
@@ -748,7 +748,7 @@ Here we have three domains and one URL path. Both the bare domain and the www ho
 
 00:41:18:41 - 00:41:37:50
 Keith
-It came from the Triage sandbox TLS decryption. If you have decryption on your network, you could then look for and block against this URL. If you don't, you're out of luck. I'm, sorry. So the parent process was codecsupdater.exe, and the payload was wav.exe.
+It came from the Triage sandbox TLS decryption. If you have decryption on your network, you could then look for and block against this URL. If you don't, you're out of luck. I'm sorry. So the parent process was codecsupdater.exe, and the payload was wav.exe.
 
 00:41:37:56 - 00:41:41:38
 Keith
