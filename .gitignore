@@ -1,6 +1,7 @@
 .DS_Store
 .agents
 .claude
+.vscode
 node_modules/
 skills-lock.json
 pcaps/
@@ -11,6 +12,10 @@ youtube.md
 linkedin.md
 blog.md
 full-prompt.md
+notes.md
 corelight.md
 __pycache__/
 uploads/
+AGENTS.md
+CLAUDE.md
+captions/
