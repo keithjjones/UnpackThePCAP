@@ -25,12 +25,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Unpack the PCAP — network forensics, one packet at a time</title>
-<meta name="description" content="Interactive slide decks, Zeek scripts, and transcripts for the Unpack the PCAP podcast — network forensics, one packet at a time.">
+<meta name="description" content="Interactive slide decks, scripts, and transcripts for the Unpack the PCAP podcast — network forensics, one packet at a time.">
 
 <!-- Social share card, so a pasted link shows the banner instead of a bare URL. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Unpack the PCAP">
-<meta property="og:description" content="Network forensics, one packet at a time. Interactive slide decks, Zeek scripts, and transcripts for every episode.">
+<meta property="og:description" content="Network forensics, one packet at a time. Interactive slide decks, scripts, and transcripts for every episode.">
 <meta property="og:image" content="{{SITE_URL}}images/banner.png">
 <meta property="og:url" content="{{SITE_URL}}">
 <meta name="twitter:card" content="summary_large_image">
@@ -317,6 +317,67 @@
   /* Thin "packet stripe" across the top of each card. */
   .stripe { height: 4px; background: linear-gradient(90deg, var(--blue), var(--green) 55%, var(--gold)); }
 
+  /* ---------- Card video (YouTube facade) ---------- */
+
+  /* The upper portion of the card: YouTube's thumbnail, wrapped in a link the
+     script swaps for the real player on click. Without JS it is a plain link
+     to the video, so nothing here is load-bearing. */
+  .card-media {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .card-media .facade {
+    position: absolute;
+    inset: 0;
+    display: block;
+    /* No underline on hover: the whole tile is one link over an image. */
+  }
+  .card-media .facade:hover { text-decoration: none; }
+  .card-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* hqdefault is 480x360 with 45px bars on a 16:9 video — cover crops
+       exactly those bars back to a clean 16:9 frame. */
+    object-fit: cover;
+  }
+  .card-media .play {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: rgba(7, 13, 24, .72);
+    border: 2px solid rgba(255, 255, 255, .85);
+    color: #fff;
+    /* Nudge the triangle optically into the centre of the circle. */
+    padding-left: 3px;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .card-media .facade:hover .play,
+  .card-media .facade:focus-visible .play {
+    background: linear-gradient(180deg, #e0342b, #c1201a);
+    border-color: #fff;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+  .card-media .facade:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: -2px;
+  }
+  /* Replaces the facade the moment play is pressed; fills the same box. */
+  .card-media iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #000;
+  }
+
   .card-body { padding: 18px 18px 14px; flex: 1; }
 
   .meta {
@@ -482,7 +543,7 @@
          alt="Unpack the PCAP — an open PCAP box in a data center, streaming green packet data">
 
     <p class="tagline">Network forensics, <b>one packet at a time.</b></p>
-    <p class="byline">Interactive slide decks, Zeek scripts, and transcripts for every episode.</p>
+    <p class="byline">Interactive slide decks, scripts, and transcripts for every episode.</p>
 
     <nav class="actions" aria-label="Primary">
       <a class="btn btn-primary" href="https://www.youtube.com/playlist?list=PLANlbdyl2yBU">
@@ -547,7 +608,7 @@
 
 <script>
 /*
- * Episode search and paging.
+ * Episode search, paging, and click-to-play video.
  *
  * Everything is already in the DOM, so this only ever toggles the `hidden`
  * attribute -- no fetching, no templating, no dependencies. Measured at 1000
@@ -555,6 +616,9 @@
  *
  * Each card carries a data-search haystack built by tools/build_landing.py,
  * which is why typing a word that only appears in the folder name still hits.
+ *
+ * The one thing that swaps DOM rather than hiding it: pressing play on a
+ * card's thumbnail replaces the thumbnail link with YouTube's player iframe.
  */
 (function () {
   var root = document.documentElement;
@@ -653,6 +717,34 @@
       if (next) next.focus({ preventScroll: true });
     });
   }
+
+  // Click-to-play: replace a card's thumbnail facade with the real YouTube
+  // player, in place. With JS off the facade is an ordinary link to the video,
+  // so this only ever upgrades the card — it never carries the feature alone.
+  function facadeFrom(node) {
+    while (node && node !== list) {
+      if (node.nodeType === 1 &&
+          (" " + node.className + " ").indexOf(" facade ") !== -1) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  list.addEventListener("click", function (event) {
+    var facade = facadeFrom(event.target);
+    if (!facade) return;
+    event.preventDefault();
+    var frame = document.createElement("iframe");
+    // nocookie host, autoplay only ever fires from this explicit click (a user
+    // gesture, so browsers allow it), rel=0 keeps related videos off the end.
+    frame.src = "https://www.youtube-nocookie.com/embed/" +
+                facade.getAttribute("data-ytid") + "?autoplay=1&rel=0";
+    frame.title = facade.getAttribute("data-title") || "YouTube video";
+    frame.setAttribute("allow",
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+    frame.setAttribute("allowfullscreen", "");
+    facade.parentNode.replaceChild(frame, facade);
+  });
 
   render();
 })();

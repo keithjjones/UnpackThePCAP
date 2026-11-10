@@ -9,6 +9,7 @@ read out of the deck or detected from the files next to it:
     episode number  chronological rank, oldest episode is 1
     title           the deck's "# Unpack the PCAP: <title>" line
     subtitle        the "## <subtitle>" line under it
+    card media      YouTube's own thumbnail, click-to-play in the card
     slides link     always, because the deck is what we just built
     Zeek scripts    scripts/ exists and has files in it
     transcript      transcript.txt exists
@@ -239,7 +240,7 @@ def discover(episodes_dir: Path) -> tuple[list[Episode], list[str]]:
 
 # A bare number, with or without an "ep" in front: "3", "ep3", "EP 12". Bounded
 # to four digits so a YYMMDD date falls through to the slug match below, where
-# "260904" finds the episode by its folder name instead.
+# "261012" finds the episode by its folder name instead.
 EP_QUERY_RE = re.compile(r"^(?:ep\s*)?(\d{1,4})$", re.IGNORECASE)
 
 
@@ -318,18 +319,38 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
         chips.append(render_chip("facebook", "Facebook", episode.facebook))
     chips.append(render_chip("slides", "Slides", deck_url))
     if episode.has_scripts:
-        chips.append(render_chip("scripts", "Zeek scripts", f"{tree}/scripts"))
+        chips.append(render_chip("scripts", "scripts", f"{tree}/scripts"))
     if episode.has_transcript:
         chips.append(render_chip("txt", "Transcript", f"{blob}/transcript.txt"))
     if not episode.youtube:
         # Better than an empty gap: says the episode is out, video is pending.
         chips.append('<li><span class="chip muted"><span class="dot"></span>YouTube soon</span></li>')
 
+    # The upper portion of the card is YouTube's own still, wrapped in a link
+    # that the page script upgrades to the real player on click (the facade
+    # pattern): no iframe loads until someone presses play, and with JS off the
+    # thumbnail is an ordinary link to the video. hqdefault always exists;
+    # the CSS crops its 4:3 letterbox back to 16:9 (object-fit: cover takes
+    # exactly the 45px bars off a 480x360 still of a 16:9 video).
+    media = ""
+    if episode.youtube:
+        ytid = html.escape(episode.youtube, quote=True)
+        media = f'''
+        <div class="card-media">
+          <a class="facade" href="https://youtu.be/{ytid}" data-ytid="{ytid}"
+             data-title="{esc(episode.title)}"
+             aria-label="Play the video: {esc(episode.title)}">
+            <img src="https://i.ytimg.com/vi/{ytid}/hqdefault.jpg" alt=""
+                 loading="lazy" width="480" height="360">
+            <span class="play" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+          </a>
+        </div>'''
+
     subtitle = f'\n          <p class="subtitle">{esc(episode.subtitle)}</p>' if episode.subtitle else ""
     chip_html = "\n          ".join(chips)
 
     return f'''      <li class="card" data-search="{html.escape(search_haystack(episode), quote=True)}">
-        <div class="stripe"></div>
+        <div class="stripe"></div>{media}
         <div class="card-body">
           <p class="meta">
             <span class="ep-num">EP {episode.number}</span>

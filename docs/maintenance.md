@@ -15,7 +15,7 @@ beside it:
 
 | Shown on the site | Comes from |
 |:--|:--|
-| Date | the `YYMMDD` prefix on the folder name |
+| Date | the `YYMMDD` prefix on the folder name (the **release date**, e.g. `261012` = Oct 12, 2026) |
 | Episode number | chronological rank, oldest is 1 |
 | Title | the deck's `# Unpack the PCAP: <title>` line |
 | Subtitle | the `## <subtitle>` line under it |
@@ -145,6 +145,23 @@ The search haystack is built server-side by `search_haystack()`, which is why a
 word that survives only in the folder name still matches. To make a new field
 searchable, add it there.
 
+### Card video
+
+Each episode with a `youtube:` id in its deck frontmatter carries YouTube's own
+thumbnail across the top of its card, wrapped in a link the page script swaps
+for a `youtube-nocookie.com` embed **on click** — the player starts right there
+in the card, and no iframe loads until someone presses play (the facade
+pattern, so a page of 24 cards costs 24 lazy images, not 24 YouTube players).
+With JavaScript off the thumbnail is an ordinary link to the video; episodes
+without a YouTube id get no media block at all, just the "YouTube soon" chip.
+
+Two gotchas: the embed shows YouTube's **Error 153** when the page is opened
+as a `file://` URL (no HTTP referrer) — serve over `http://` to preview, the
+deployed site is unaffected; and thumbnails are `loading="lazy"`, so a
+full-page screenshot taken without scrolling shows empty media boxes — scroll
+first (the phone shots from `tools/shoot-landing.js` show them blank for this
+reason).
+
 ### Why it scales
 
 Measured on a generated 1000-episode set, 4x-throttled mobile CPU:
@@ -203,7 +220,6 @@ tools/
   check_slides.py    finds content running off a slide
 docs/
   maintenance.md     this file
-  custom-domain.md   one-time runbook for the DNS move
 output/            screenshots and Zeek logs           (gitignored)
 ```
 
@@ -219,9 +235,7 @@ page.
 
 The site is served at [unpackthepcap.com](https://unpackthepcap.com/) as a
 GitHub Pages custom domain. The domain itself is registered at DreamHost, but
-DreamHost only answers DNS for it — nothing is hosted there. The step-by-step
-setup, including the DreamHost panel clicks, is in
-[custom-domain.md](custom-domain.md).
+DreamHost only answers DNS for it — nothing is hosted there.
 
 Nothing in the repo names the domain in a load-bearing way. `Setup Pages` runs
 *before* the builds and reads the repo's live Pages settings, and both builds
