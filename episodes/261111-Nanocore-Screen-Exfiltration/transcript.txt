@@ -1,0 +1,912 @@
+00:00:00:00 - 00:00:15:03
+Keith
+Welcome back to Unpack the PCAP. I'm Keith. Let's crack open another PCAP. Today we're going to be looking at NanoCore RAT, and this sample was submitted on October 23rd, 2026, and you're going to see it posted screenshots, five of them.
+
+00:00:15:08 - 00:00:29:38
+Keith
+This malware posted real 1920 by 1080 screenshots back to its C2 in plain text HTTP. Because of that, we are going to carve out every single one of these screenshots out of the capture and we're going to look at what the attacker bought.
+
+00:00:29:43 - 00:00:37:33
+Keith
+It's like a pet cam aimed at a hamster that won't run in the wheel and it still snaps a picture every 30 seconds right on schedule.
+
+00:00:37:37 - 00:00:51:43
+Keith
+The interactive version of this deck is live. Every query here is copy and pastable against our logs. And I'm going to show you how to generate those logs in a minute. Yes, I am asking you to paste code from a cybersecurity video into a terminal.
+
+00:00:51:48 - 00:00:57:43
+Keith
+Every scam does open just like that. Ours, well, ours comes with slides.
+
+00:00:57:47 - 00:01:06:22
+Keith
+Every query, it runs against your own logs. And you can take one of these and go for a spin whenever you like. But first things first, where did this capture come from?
+
+00:01:06:37 - 00:01:19:51
+Keith
+Before we start, every claim in this deck comes from publicly available sources. The actual source here is the triage sandbox. It's a PCAP, and there's a JSON analysis report we'll be downloading. And you can see the sample ID there.
+
+00:01:19:51 - 00:01:29:53
+Keith
+I'm not going to read it for you. It's a really random looking string. And it's linked on the slide. So if you have access to the slides, go ahead and click on there. It'll go straight to the report for you.
+
+00:01:29:57 - 00:01:44:27
+Keith
+To pull a PCAP yourself, just open the analysis link, go to the behavior1 task, and then download the PCAPNG. You're going to need a free triage account to do this. It's pretty easy to do. It took me just a few minutes to do.
+
+00:01:44:32 - 00:01:53:51
+Keith
+And then once you have an account, you can apply for a free security researcher API, and that will let you download the JSON reports that we'll be looking at as well.
+
+00:01:53:55 - 00:02:08:12
+Keith
+Every Zeek, tshark, and capinfos command in this slide deck runs against this file. Everything else, every count, every IP, every timestamp, we derive together from that PCAP. Zeek logs, we're going to generate ourselves.
+
+00:02:08:17 - 00:02:21:53
+Keith
+Per the published analysis and per the PCAP, if it's on a slide, there's a command behind it. It's all public. Somebody did the crime, and I show up afterwards with a microphone and a presentation nobody asked for.
+
+00:02:21:58 - 00:02:26:54
+Keith
+All right, we got our source lined up. Now let's talk about the shape of the traffic.
+
+00:02:26:59 - 00:02:37:06
+Keith
+Here's our outline. We have eight sections in the order that this investigation actually happened. We'll start with the tool chain and the victim, and we'll follow the dropper into its plain text C2 channel.
+
+00:02:37:11 - 00:02:50:04
+Keith
+And then the main event, we're going to carve out the exfiltrated screenshot straight out of the PCAP. And then after that, we'll talk about the TLS side channel and then some detection work. And we'll close out with some indicators and some takeaways.
+
+00:02:50:09 - 00:02:59:57
+Keith
+The outline of every episode is the same. Traffic, malware, shame, Zeek script. This one, it's going to add a photo album. So now let's fire up Zeek.
+
+00:03:00:01 - 00:03:15:34
+Keith
+So here's the command that generated every Zeek log this episode is going to use. Plain Zeek, nothing to explain, but the three packages riding along. So first grab yourself that PCAP, and this command is going to read from the PCAP's directory right where we left it.
+
+00:03:15:39 - 00:03:28:29
+Keith
+You want the full default log set? We're going to use abbreviated here, but if you want the full log set, you can actually just add the package. It's not a package, but use the word local and it'll load the local packages for you.
+
+00:03:28:33 - 00:03:31:12
+Keith
+And you'll have things like software.log and so forth.
+
+00:03:31:17 - 00:03:44:02
+Keith
+The packages that we're going to be running in this episode is going to be JA4. It's going to fingerprint the TLS clients and servers. We have the Zeek log all HTTP headers so we can take a look at all the headers that are sent across the HTTP connection.
+
+00:03:44:06 - 00:03:54:03
+Keith
+And then we're going to run this other one called log add HTTP post bodies, which is going to give us a snippet of the HTTP post bodies, which is going to have those screenshots that we're going to carve out.
+
+00:03:54:08 - 00:04:05:24
+Keith
+You'll see at the end of our command here, there's an LS command and it's going to show the eight logs. You see HTTP.log is where the entire C2 protocol will show up in this sample.
+
+00:04:05:29 - 00:04:10:14
+Keith
+Log add HTTP post bodies is the only reason this episode exists.
+
+00:04:10:18 - 00:04:16:57
+Keith
+Without it, we'd be doing a dramatic reading straight out of tcpdump or Wireshark, and it just wouldn't be as pretty.
+
+00:04:17:02 - 00:04:24:07
+Keith
+All right, so after we run this command, our logs exist. Now we need a way to query them that won't make me cry.
+
+00:04:24:11 - 00:04:35:21
+Keith
+So here we're going to use DuckDB, which is kind of like SQLite if you've ever used that before, and it's just really fast for reading logs. And there's just one install command and you've got the whole tool chain here.
+
+00:04:35:26 - 00:04:52:44
+Keith
+In DuckDB, there is a Zeek extension written by my friend Yacin Nadji. He gives DuckDB this read underscore Zeek function. And this will eat your Zeek logs, the TSV ones, directly. You don't have to use Zeek cut, no awk, no shell plumbing, nothing.
+
+00:04:52:49 - 00:04:59:13
+Keith
+It's just a SQL engine in order to do things like join across different logs, which is really powerful.
+
+00:04:59:18 - 00:05:06:30
+Keith
+Every query you'll see in these slides is one readable statement, and it starts with load Zeek, load INET at the top.
+
+00:05:06:31 - 00:05:19:32
+Keith
+And what that does is it loads the Essenes Yacin’s extension that he wrote, and then it also loads the INET extension. So we can do things like, say, does this IP address show up in this subnet, which is another really powerful SQL command.
+
+00:05:19:37 - 00:05:30:42
+Keith
+So who is the victim? Per the PCAP, the answer is 10.127.0.22. And that's 63 of the 64 connections in the capture start there.
+
+00:05:30:47 - 00:05:39:18
+Keith
+The lone 10.127.0.1 row is one serviceless workflow into the victim and not part of our story here, so we're not going to talk about it.
+
+00:05:39:23 - 00:05:43:56
+Keith
+The host name turns up later. It's smuggled inside the post bodies that we'll look at.
+
+00:05:44:00 - 00:05:48:35
+Keith
+It ends up being OPSJLZUQ.
+
+00:05:48:40 - 00:06:05:18
+Keith
+It reads like a license plate issued by a machine that gave up naming halfway through. And it's expected. That's a sandbox machine, right? So in a few minutes, we're going to watch that sandbox machine with that really weird, random looking name get photographed against its will.
+
+00:06:05:23 - 00:06:19:51
+Keith
+10.127.0.22 is a private address space, the network version of an unlisted number. The victim cannot be reached for a comment. There's one victim, one IP. Now let's measure the crime scene.
+
+00:06:19:56 - 00:06:28:00
+Keith
+The whole capture is about 2,000 packets and about 1.5 megabytes. It's about two and a half minutes of wall clock time.
+
+00:06:28:05 - 00:06:42:44
+Keith
+We're going to use time zone of UTC just to keep every machine honest. Capinfos ships with Wireshark's command line tools. And Debian, you got to install command line tools. But if you're on a Mac and you do a brew Wireshark, it should be installed.
+
+00:06:42:49 - 00:06:49:53
+Keith
+Two and a half minutes is all we get and five screenshots get posted back to the C2 inside that time window.
+
+00:06:49:57 - 00:06:57:03
+Keith
+Nine background requests from Windows and nobody blinked. The malware sent five screenshots and caught a case.
+
+00:06:57:08 - 00:07:06:12
+Keith
+The malwarew weighs 58 kilobytes and shipped home seven times its own body weight in screenhots. That's not exfiltration. That's a hernia.
+
+00:07:06:17 - 00:07:08:44
+Keith
+We now know how big it is. What's actually inside it?
+
+00:07:08:48 - 00:07:20:30
+Keith
+The service breakdown tells you where to look before you read a single packet. SSL dominates here by connection count. There's 34 of them, and that's the malware's TLS sessions, plus the sandbox own Windows chatter.
+
+00:07:20:35 - 00:07:39:35
+Keith
+HTTP has only seven connections, but carries about a megabyte. It's the largest byte total by far, and this is where the exfil lives. And four serviceless connections, three dead attempts to an IP address that never answers, plus one ICMP error from 10.127.0.1.
+
+00:07:39:40 - 00:07:48:07
+Keith
+And the malware moved 547 kilobytes of payload past Windows Updates 262. Better than 2 to 1.
+
+00:07:48:12 - 00:07:53:23
+Keith
+Nobody, not even Windows Update, outworks a background job with a deadline.
+
+00:07:53:28 - 00:08:03:23
+Keith
+Counts are nice. That's the shape of the traffic, and HTTP bytes are where the XFIL lives. Now, let's meet the thing that generated it, the dropper itself.
+
+00:08:03:28 - 00:08:21:20
+Keith
+Who was behind the traffic? The sample went into the triage sandbox. The dropper ran for real. And this report is a scorecard of that run. Here are its top scores. To run this block yourself, a free triage account, and then your token from the account pages API access session.
+
+00:08:21:24 - 00:08:23:59
+Keith
+And this is all free, by the way. You just apply for it.
+
+00:08:24:03 - 00:08:31:30
+Keith
+The curl on the screen downloads the same overview.json that we're going to read in these slides. So I recommend that you download it if you want to follow along.
+
+00:08:31:35 - 00:08:46:18
+Keith
+A score of 10 across the board, it says it disables Windows Defender, it's family NanoCore, it kills a security service, and at 9, deletes shadow copies. This is a compliance checklist of a malware author.
+
+00:08:46:23 - 00:08:49:47
+Keith
+Everything that could notice him, switched off first.
+
+00:08:49:52 - 00:09:04:05
+Keith
+Version 1.2.2.0 matters here because per Cisco Talos campaign write-up, the build is the leaked one. We're going to have a link on the slide to go to the source code of this malware.
+
+00:09:04:10 - 00:09:13:46
+Keith
+Now, what's kind of funny is the victim graded its own attacker. Ten across the board but one, and the only course that this malware aces is destruction 101.
+
+00:09:13:51 - 00:09:17:34
+Keith
+The report gives us the label. Let's read the config itself.
+
+00:09:17:38 - 00:09:32:46
+Keith
+So here's the extracted config straight out of the triage.json we just downloaded. The C2 URL is in plain text, the group name, the Cloudflare server name servers, and the version. C underscore URL is HTTP.
+
+00:09:32:50 - 00:09:51:48
+Keith
+Note the scheme. Plain HTTP. That's the whole ballgame for the next two sections. The version is 1.2.2.0. And that source or the source for that build is now leaked on Github as of March 2015. This is 2026.
+
+00:09:51:53 - 00:09:56:43
+Keith
+So a 2026 campaign is running nine-year-old code, believe it or not.
+
+00:09:56:48 - 00:10:04:19
+Keith
+So tried reading C underscore URL out loud. SocoLiveTV-TV.
+
+00:10:04:24 - 00:10:21:29
+Keith
+Yeah, you'll stutter. This address is a already buffering. Config says NanoCore in version 1.2.2.0 has one very unusual property for malware. Its source code is out in the open. Where? Well, that gets its own slide, links and all.
+
+00:10:21:33 - 00:10:22:32
+Keith
+Up next.
+
+00:10:22:37 - 00:10:54:42
+Keith
+The best thing about NanoCore in 2026 is you don't have to wonder what it looks like inside. the 1.2.2.0 build our config just named is sitting on Github right now and you can see all four links on your slide. Two repos host the crack distribution the things like builders, plugins and the works. One readme says cracked by alcatraz 3222 archive password 123. So forget security through obscurity. This is security through not really trying.
+
+00:10:54:47 - 00:11:03:49
+Keith
+The third is the stub source where we went looking for our wire markers that we'll be talking about. We got some markers like screen, fast beacon, and heartbeat.
+
+00:11:03:54 - 00:11:06:00
+Keith
+We're going to see zero hits in there.
+
+00:11:06:04 - 00:11:31:58
+Keith
+We'll see controls like socket, command, and connect. Those light up 131 times. So these markers or these labels aren't its code at all. So it's not part of NanoCore, at least up on Github. The operator's own code bolts on an HTTP channel onto the RAT and hardcodes these markers into every post body.
+
+00:11:32:03 - 00:11:46:52
+Keith
+Okay, so the fourth link is analysis tooling. And to be explicit for anyone replaying this at home, all four links are reading only. Okay, don't run code out of those repos. Just look for things like hashes, metadata, source code as text.
+
+00:11:46:57 - 00:11:52:35
+Keith
+That's all we're doing here, okay? And Talos is the source for our leak status itself.
+
+00:11:52:40 - 00:12:07:19
+Keith
+So the distribution’s readme advises you to disable your antivirus before use. Warranty void if safety equipment is used. And somewhere, operators are standing by waiting for you to turn it off. All right, so this is our ecosystem now.
+
+00:12:07:33 - 00:12:12:23
+Keith
+What does our copy of Nanocore actually say on the wire? The posts up next.
+
+00:12:12:35 - 00:12:29:44
+Keith
+The entire C2 protocol is three message types typed into the body of a post. Read the column straight across. The message is the uppercase label or marker that opens each post body. Count is how many times we found it. And the min and max bytes are the shortest and longest actual post body size.
+
+00:12:29:49 - 00:12:44:31
+Keith
+And we pull that from the request body length, the length of the real body, not from the post body text column in the log. Because that log actually truncates the body. Because these bodies are going to be like 144 kilobytes and you don't want everything in the log.
+
+00:12:44:36 - 00:12:48:35
+Keith
+But you can see the first, oh, 200 bytes or so and get an idea of what was sent.
+
+00:12:48:45 - 00:12:53:26
+Keith
+So that's why we're looking at the real bytes of the connection rather than what's in the log because the log is truncated.
+
+00:12:53:31 - 00:13:19:42
+Keith
+Now the marker fast beacon appears 14 times at exactly 20 bytes uh has fast beacon colon and then the ops jl z uq host name. Heartbeat is very similar that happens four times at 24 bytes and it says heartbeat colon and then the computer name again. And we don't well there's also a pipe symbol and an admin after that computer name.
+
+00:13:19:46 - 00:13:35:47
+Keith
+And we don't exactly know what that is. It could be a session, it could be a group, it could be a user account. We're not really sure, but it is in the clear. The third marker type is the screen. And we see this five times anywhere from about 99 kilobytes to 144 kilobytes.
+
+00:13:35:51 - 00:13:57:08
+Keith
+And the first screenshot is the fat one. So that's the big one. The other four cluster just under 100 kilobytes each the big size gap between the first one and the rest we see it now just looking at the sizes so immediately you should be thinking why is that size so much different? When we take a look at these screenshots it'll be obvious why.
+
+00:13:57:13 - 00:14:19:17
+Keith
+So these screenshots actually decode straight into the JPEGs as long as you carve them out and base64 decode them. So we have 18 check-ins 14 beacons, four heartbeats and only five photographs to show for it. This malware spends more breath saying hello than it actually does working. So we know the message is. What does the server say back?
+
+00:14:19:21 - 00:14:24:48
+Keith
+23 requests, 23 answers, 301, move permanently, location,
+
+00:14:24:53 - 00:14:27:04
+Keith
+HTTPS,
+
+00:14:27:09 - 00:14:30:35
+Keith
+socolivetv-tv.com. So the stutter's back.
+
+00:14:30:40 - 00:14:36:23
+Keith
+So the HTTPS is the part that's different. We were on HTTP before, and now it's saying, hey, you need to move over to the encrypted protocol.
+
+00:14:36:38 - 00:14:42:33
+Keith
+Now Cloudflare, they front this domain, and Cloudflare's doing the attacker's operational security for free.
+
+00:14:42:38 - 00:14:53:03
+Keith
+And the attacker just won't stand for it. The malware goes back and posts again over the same plain text connection and ignores the redirect 23 times out of 23.
+
+00:14:53:07 - 00:15:11:22
+Keith
+Keep this slide in your head for the takeaways. A redirect is an offer, not an enforcement. Servers can offer. Clients don't have to listen. The encryption is offered like a mint on a pillow and the malware checks out carrying a postcard with his crime scene right on the front of it.
+
+00:15:11:27 - 00:15:14:53
+Keith
+All right, so next, let's look at how the client identifies itself.
+
+00:15:14:58 - 00:15:38:05
+Keith
+Mozilla 5, Windows 10, 64-bit, all correct, all boring. And then Apple WebKit 537.36, and then nothing. No KHTML, no like Gecko, no Chrome, no Safari, no tail of any sort, just a sentence stops. Compare it to the real one on the slide.
+
+00:15:38:10 - 00:15:48:47
+Keith
+Everything after 537.36, you got the Gecko tag, the Chrome version, the Safari. And this is all the stuff the original string never had.
+
+00:15:48:52 - 00:16:09:07
+Keith
+And the stacked brands in the real one are genuinely real. Every browser user agent wears Mozilla, WebKit, Safari tokens per MDM for compatibility than its own name. Chrome 156.0.0.0 is currently stable per Chrome's release blog when I film this.
+
+00:16:09:12 - 00:16:21:17
+Keith
+The framework doesn't default it. Microsoft's docs put user agent at null, and their request library ships no user agent string of its own. So when this string shows up, someone had to have chosen it.
+
+00:16:21:22 - 00:16:34:40
+Keith
+And Microsoft treats it as familiar. Their HTTP logging docs use this exact half string as the example client header. Kestrel benchmarks parse requests carrying this, and HTTP clients test set it deliberately.
+
+00:16:34:44 - 00:16:39:08
+Keith
+This is known in the .NET world, and its origin is unproven.
+
+00:16:39:13 - 00:16:50:27
+Keith
+It's a police sketch that stops at the forehead, 60% of a browser's user agent submitted with confidence. One user agent for everything, but the headers underneath wobble.
+
+00:16:50:31 - 00:16:52:17
+Keith
+Here's how Zeek fingerprints them.
+
+00:16:52:22 - 00:17:02:11
+Keith
+JA4H is the HTTP fingerprint, and it's the request header sibling of the TLS JA4 will meet properly in Act 4.
+
+00:17:02:16 - 00:17:16:21
+Keith
+You read this per FOXIO's format. The A part opens up with the method and the version, so PO11 is post over HTTP 1.1. And our own logs agree. Every get in this capture reads GE11.
+
+00:17:16:26 - 00:17:33:06
+Keith
+The count is proven, not assumed. tshark shows that the first screen post is at 21, 21, 13, carrying five header lines. It adds connection keep alive and its fingerprint reads 05. Every later post carries four and reads 04.
+
+00:17:33:11 - 00:17:42:27
+Keith
+So 04 equals four request headers and the middle chunk hashes that header list, identical across all 22 because the list never changes.
+
+00:17:42:32 - 00:17:48:43
+Keith
+The trailing zeros are JA4H's cookie fingerprint. And here they're zero because these posts, they didn't send a cookie header at all.
+
+00:17:48:48 - 00:18:03:24
+Keith
+So the whole identity shift is one number from 04 to 05. And this is like the Oxford comma equivalent of malware fingerprints. Headers are now cataloged. So let's go find these screenshots in the logs.
+
+00:18:03:29 - 00:18:12:02
+Keith
+So there's five screenshot posts. Every one is 30.7 seconds time stamped to the microsecond. And that's the capture loop of this screenshot plugin.
+
+00:18:12:07 - 00:18:28:37
+Keith
+But HTTP log didn't keep those bodies whole. Each log screen body is just the first 200 characters of the real one. then a literal dot, dot, dot, which is the logging package's own setting. And it's set to 200 characters to print in the log, the first 200 characters.
+
+00:18:28:41 - 00:18:46:53
+Keith
+We check those 200 characters byte for byte against the PCAP and the real body's first 200 every time they match across all five of the JPEGs because all the JPEGs share the same encoding headers. So all the five MD5s match, even though the screenshots you're going to see are not the same.
+
+00:18:46:58 - 00:19:00:29
+Keith
+So this log is like a doorbell camera. It tells you five deliveries arrived and it shows you exactly zero pixels, okay? The actual JPEG data lives in the PCAP in TCP stream 2. And to get it out, we have to carve.
+
+00:19:00:35 - 00:19:02:55
+Keith
+So I wrote you some script to do that.
+
+00:19:03:00 - 00:19:15:42
+Keith
+So there's five different photos, one identical hash, and the log read the first 200 characters of each and shrugged. Eh, close enough. So let's get our hands dirty and let's do the carve pipeline next.
+
+00:19:15:46 - 00:19:27:51
+Keith
+We have one script and two arguments, the PCAP coming in and the directory out. There's no paths baked into this script that I wrote for you. So you run it against your own copy of the capture just wherever it lives.
+
+00:19:27:56 - 00:19:51:30
+Keith
+Under the hood is a Zeek script. This extract HTTP post.Zeek file attaches the file extract analyzer to every HTTP request body flowing between the client and the server. Zeek drops each body into an extract underscore files directory under this really random looking name that has some timestamp and the file ID and a bunch of other stuff in it.
+
+00:19:51:34 - 00:19:58:46
+Keith
+It sorts it and then it renames them to screen one through screen five so you know what order they popped up in.
+
+00:19:58:51 - 00:20:10:16
+Keith
+The script keeps the body starting with the screen colon, strips out the screen colon, and then base64 decodes what's left and it becomes a JPEG every single time.
+
+00:20:10:21 - 00:20:14:22
+Keith
+Data files carved out of the PCAP, we're going to display them.
+
+00:20:14:27 - 00:20:20:33
+Keith
+Look at the sizes. The first screenshot is 108 kilobytes and the other four are all about 74 kilobytes.
+
+00:20:20:36 - 00:20:34:36
+Keith
+So something must have changed after the first one that made the picture simpler and then stayed that way. What it was, we'll show you next. The whole scheme was base64 and that's kind of like a lock with a key taped to the front of it.
+
+00:20:34:41 - 00:20:39:29
+Keith
+So these files exist. Let's look at what the attacker actually bought.
+
+00:20:39:33 - 00:20:54:29
+Keith
+This is our first screenshot. 1920 by 1080 straight out of the attacker's own exfiltration stream. What you're looking at is the analyst sandbox. It's just the wallpaper, the tool icons, an inactivate, Windows watermark, nobody bothered to clear.
+
+00:20:54:33 - 00:21:21:36
+Keith
+And the victim never visited a website in this capture, okay. The RAT just started photographing the desktop it woke up on. So every 30.7 seconds point and shoot whether anything happened or not. The analyst fortune cookie is a stranger that will photograph your desk five times tonight. The first screenshot is the desktop and then the sandbox does exactly one thing for the rest of the capture. Here it is four times.
+
+00:21:21:40 - 00:21:37:20
+Keith
+Screenshots 2 through 5, an empty notepad window. Untitled, line 1, column 1, no characters, ever. The sandbox opened notepad and sat there while the RAT dutifully shipped a photo of it home every 30 seconds.
+
+00:21:37:25 - 00:21:55:34
+Keith
+Four of the five stolen images are this window. The clock, if you look at it, goes from 10:21 up to 10:23, and that's the whole plot of these screenshots. 90 seconds of a blank text file, base64 encoded, and posted like it was trade secrets.
+
+00:21:55:39 - 00:22:08:45
+Keith
+Somewhere, an operator paid for this RAT and got a 90-second screenshot of a notepad. And the most valuable intelligence here is an empty file. Both sides of the transaction are now disappointed by this.
+
+00:22:08:49 - 00:22:12:36
+Keith
+Four photographs of the same window. Let's see what the files themselves kept.
+
+00:22:12:41 - 00:22:28:24
+Keith
+So looking at the metadata of the screenshot, we have the EXIF tool and we ran it and the box shows every format fact there is. It's JFIF, the resolution, the color, the size, and the full report adds only file system lines and JPEG geometry on top.
+
+00:22:28:29 - 00:22:39:13
+Keith
+What's absent from all five images is everything that would identify the shot, like the date and time it was taken, the software that took it, and the device that it was made on.
+
+00:22:39:18 - 00:22:56:21
+Keith
+So there's zero EXIF, no EXIF segment exists in any of these five files. And per Microsoft's docs, the GDI writes metadata only when code explicitly asks for it. A plain save writes none. The only timestamp inside these images is painted in pixels.
+
+00:22:56:26 - 00:23:09:44
+Keith
+The test bar clock, 1023 on October 23rd, 2026, which lines up with the HTTP date headers and Zeek's timestamps once you account for the sandbox running in UTC plus one.
+
+00:23:09:49 - 00:23:22:24
+Keith
+None of the six lines say that when the picture was taken. So we dated it the way you date a proof of life photo, just by reading the clock in the corner. We have the pictures. The other half of this beacon loop rides on TLS.
+
+00:23:22:29 - 00:23:25:24
+Keith
+Let's open it up and start looking at it.
+
+00:23:25:29 - 00:23:45:59
+Keith
+There are 23 TLS sessions to SoCoLiveTV-TV.com. Yep, I stuttered. And they split across two Cloudflare addresses. One full handshake on the first connection and then 22 resumed sessions. Session resumption, the malware waving its already introduced self back in.
+
+00:23:46:04 - 00:24:01:00
+Keith
+Then big capture. At the very end, three sessions land on a different Cloudflare IP, live IP rotation while we're watching. And the TLS session timing mirrors the post cadence. Every post lands within the second of the TLS session start.
+
+00:24:01:05 - 00:24:04:42
+Keith
+Same beacon loop, two channels, one stopwatch.
+
+00:24:04:47 - 00:24:16:39
+Keith
+One full handshake, 22 resumes. The malware cleared security once and now is part of pre-check. Two addresses, one client, and one beat that ties both channels together.
+
+00:24:16:43 - 00:24:18:28
+Keith
+We're going to watch them alternate.
+
+00:24:18:32 - 00:24:40:35
+Keith
+The order is the answer to how the channels connect. Every cycle runs the same three beats here. We have a post to port 80. About 45 milliseconds later, a 301 sends it to HTTPS for SoCoLiveTV-TV. 22 of the 23 rounds land between 45 and 47 milliseconds, and one was stalled at about 525 milliseconds.
+
+00:24:40:40 - 00:25:00:55
+Keith
+Then a brand new TLS connection opens and gets exactly that URL. And the new TLS connection opens after the 301 every single time. There's 23 for 23 of them, usually within a millisecond of it. 16 of the 23 are under a millisecond, and the median is about 0.82 milliseconds.
+
+00:25:01:00 - 00:25:08:03
+Keith
+The first round waits 735 milliseconds for the full handshake. So you see the time difference that it saves when you resume.
+
+00:25:08:08 - 00:25:14:07
+Keith
+That's about a tenth of a second later. Once the handshake completes, that's the gap the box displays.
+
+00:25:14:12 - 00:25:27:49
+Keith
+Either way, it's a program reacting and not a person. But which program on the wire? It doesn't say. a library's redirect handling, or a malware's own explicit follow, we really can't tell from the outside.
+
+00:25:27:54 - 00:25:32:49
+Keith
+This never converts, though. All 23 posts travel over the single TCP connection.
+
+00:25:32:54 - 00:25:58:06
+Keith
+All three independent views agree. Exactly one SYN to 104.18.86.1 on port 80. All 23 posts inside one Wireshark stream and one Zeek connection record carrying them first to last. It follows the redirect for the get, then posts the actual payload over HTTP again every cycle.
+
+00:25:58:10 - 00:26:14:25
+Keith
+So if you didn't catch that, it'll post the screenshots and then get redirected to HTTPS, do something on HTTPS, but not actually send any data, and then go back to HTTP, which is clear text and we can see, and then do the same thing all over again.
+
+00:26:14:30 - 00:26:26:40
+Keith
+So all three beats land every round, 69 events in total, and there was nothing skipped. The server answers a post with a redirect in about 45 milliseconds. That's not a response time, that's just a reflex.
+
+00:26:26:45 - 00:26:31:29
+Keith
+We've watched this loop. Now open one of these gets, and let's see what's inside.
+
+00:26:31:33 - 00:26:49:08
+Keith
+The wire bytes here are real AES ciphertext, but that PCAPNG isn't just packets. triage embedded the keys in the file, a decryption secrets block with 34 client random entries, one per TLS session in this SSL log.
+
+00:26:49:13 - 00:27:02:53
+Keith
+Now, tshark reads it automatically. You don't need any logs. There's no setups. And that's why these lines print it all. The gets, the host, the 403 strings that don't exist in the clear anywhere on the wire.
+
+00:27:02:58 - 00:27:23:54
+Keith
+So Zeek cannot join us here. Its SSL analyzer currently does not decrypt application data, which is why our HTTP.log only ever sees the port 80 side. The costume is on the slide now. Every request to this host, both channels, all 46, carries the identical Mozilla string.
+
+00:27:23:59 - 00:27:26:44
+Keith
+Same client wearing it on both doors.
+
+00:27:26:49 - 00:27:40:43
+Keith
+Behind that second door, Cloudflare's, just a moment, JavaScript challenge, 403, and it's about 5.5 kilobytes. The.NET client can't pass it, so all 23 visits end on the same page.
+
+00:27:40:47 - 00:28:00:10
+Keith
+So you can read this two ways. Now that we've seen what both doors return, the redirect and the challenge could mean the infrastructure behind the domain is gone. There's nothing left but Cloudflare's edges serving defaults, or the server side could be built to answer exactly this way so it looks that way by the malware.
+
+00:28:00:15 - 00:28:05:48
+Keith
+Both readings fit every byte in this capture, so picking one over the other would just be guessing.
+
+00:28:05:52 - 00:28:17:28
+Keith
+So this malware walks to the HTTPS door every time it's told to and then turns around and does all the actual work to the plain text HTTP one again. I'd love to explain how we broke this TLS, but we didn't.
+
+00:28:17:33 - 00:28:26:35
+Keith
+The keys were just sitting in the file, and my crypto analysis career lasted exactly one tshark command. So now let's find out who's saying it.
+
+00:28:26:40 - 00:28:44:27
+Keith
+So the traffic's on the table. Here's the tool that reads it, JA4. JA4 is a fingerprint of the client's TLS implementation packed into this string of A underscore B underscore C. The version of the counts are up front in the A part, and then there's two hashes of sorted suites as B and C.
+
+00:28:44:32 - 00:28:54:15
+Keith
+Because everything is sorted before hashing, two machines with the same stack produce the same JA4. It doesn't wobble between connections like you might have seen with JA3.
+
+00:28:54:19 - 00:29:12:22
+Keith
+It rides the client hello, so no decryptions needed. So domain rotations, IP rotations, fresh certificates, the handwriting still stays the same. TLS describes your entire software stack to everyone on the wire, and then only then does it lock the door.
+
+00:29:12:27 - 00:29:15:59
+Keith
+So now our theory is done. Let's measure our 23 sessions against this.
+
+00:29:16:04 - 00:29:22:32
+Keith
+So every single one of these 23 sessions carries the same JA4.
+
+00:29:22:36 - 00:29:27:34
+Keith
+T12D210700. So it's one hash pair, 23 times as well.
+
+00:29:27:39 - 00:29:42:04
+Keith
+Reading the first part, it says TCP, TLS 1.2, SNIs present, 21 cipher suites, 7 extensions, and no ALPN. And this is a.NET client hello, just one build, one stack.
+
+00:29:42:09 - 00:29:55:01
+Keith
+The IP rotated underneath it. You see a 104.17.235.173, and it goes to a 104.17.218.96, and the fingerprint still didn't move.
+
+00:29:55:06 - 00:29:59:31
+Keith
+This is the detection crown jewel. Hunt the JA4 and not the IP address.
+
+00:29:59:36 - 00:30:05:30
+Keith
+The infrastructure is rented. The TLS stack usually walks everywhere with a suspect.
+
+00:30:05:35 - 00:30:12:44
+Keith
+The team changed stadiums mid-season, but nobody changed jerseys. So 23 connections, one uniform.
+
+00:30:12:48 - 00:30:15:55
+Keith
+So we got the client side nailed down. What does the server side look like?
+
+00:30:16:00 - 00:30:22:32
+Keith
+The server side has two fingerprints and they lined up exactly with the resumed versus full connections.
+
+00:30:22:37 - 00:30:29:03
+Keith
+T12-0500 is the full handshake once on the first connection.
+
+00:30:29:08 - 00:30:34:23
+Keith
+T, 1, 2, 0, 3, 0, 0 every resume session on both Cloudflare IPs.
+
+00:30:34:27 - 00:30:45:49
+Keith
+Why the counts differ. JA4S counts the server hello's extension. A fresh negotiation sends five. A resumed session just confirms itself and sends three.
+
+00:30:45:54 - 00:30:49:09
+Keith
+It's still the same server either way. You can see that both B parts match.
+
+00:30:49:13 - 00:31:08:28
+Keith
+So both are Cloudflare's real certificate stacks, consistent across the rotation. The infrastructure operator never changed, only the address did. The pattern, one full handshake, 22 resumes, one client JA4, is a tight signature for a beacon loop and worth alerting on as a unit.
+
+00:31:08:33 - 00:31:15:30
+Keith
+What it must not become treating either of the JA4s as this malware server signature.
+
+00:31:15:35 - 00:31:31:11
+Keith
+We checked. Neither of these values appear in a JA4 database or anywhere online, benign or malicious. JA4S describes the server's response to our clients' hello, not who's running it, and it doesn't tell us whether that infrastructure is even still standing.
+
+00:31:31:16 - 00:31:49:46
+Keith
+22 of 23 sessions are just Cloudflare saying, is that you again? Just one introduction and Cloudflare has just known it ever since. My colleagues have known me for years and they still hesitate. The TLS side is now closed, but before we go hunting, one more layer of the infrastructure DNS.
+
+00:31:49:50 - 00:32:04:31
+Keith
+So how the domain resolves is its own little theater. There's three lookups for SoCoLiveTV-TV.com during the capture. And DNS.log, it lists the Q-type A for all three and nothing else for this name.
+
+00:32:04:36 - 00:32:23:30
+Keith
+Every answer resolves the same way. SoCoLiveTV-tv.com is an alias for a.dnsapi12.com, which is an alias for Baidu.cloudflare.182682.xyz, which points at Cloudflare's edge, different names for the same destination.
+
+00:32:23:35 - 00:32:25:48
+Keith
+This isn’t stops on a route.
+
+00:32:25:53 - 00:32:28:11
+Keith
+It all arrives in one response.
+
+00:32:28:15 - 00:32:37:24
+Keith
+A double C-name alias, the middle name carries the Baidu label, but aliases aren't hops. Every connection in this capture goes straight to the Cloudflare addresses.
+
+00:32:37:29 - 00:32:41:37
+Keith
+Three names for one server and reading them needs no decryption.
+
+00:32:41:42 - 00:32:52:58
+Keith
+And watch the first A shuffle. Each lookup hands back a different front door IP. The plain text HTTP site is one keep alive connection and it's 104.18.86.1.
+
+00:32:53:03 - 00:33:02:38
+Keith
+The only 104.18 address anyone talks to. TLS opens a fresh connection each session and lands on two of the rest of the IPs.
+
+00:33:02:43 - 00:33:09:26
+Keith
+So there's three lookups, the same answer each time, and it asked DNS like it just didn't believe the first two.
+
+00:33:09:31 - 00:33:17:59
+Keith
+So we got the DNS mapped. Every layer of this capture is now mapped. Let's take stock of what we got because the next session we’ll spend it.
+
+00:33:18:04 - 00:33:32:48
+Keith
+So take stock before we build four sessions of analysis for reusable detections. The protocol gave us a byte zero marker. The cadence gave us two timers. And the TLS side gave us some JA4 that survives rotation.
+
+00:33:32:53 - 00:33:37:31
+Keith
+And the grammar generalizes past every marker we know.
+
+00:33:37:36 - 00:33:45:54
+Keith
+Not one of these needs decryption. Plain text bodies, and connection metadata. That's all it needs. So the section changes right here. The analysis is done.
+
+00:33:46:01 - 00:33:50:24
+Keith
+Next, we're going to write a rule. And then we're going to watch it fire on this very capture.
+
+00:33:50:29 - 00:33:56:01
+Keith
+The malware has already told us how often it calls, what it sounds like, and what it calls itself.
+
+00:33:56:06 - 00:33:59:31
+Keith
+Our detector now is just taking notes. So here's our detector.
+
+00:33:59:36 - 00:34:05:27
+Keith
+The detection payload itself is four signatures, and they're almost embarrassingly short.
+
+00:34:05:32 - 00:34:08:00
+Keith
+Each one requires it to be a TCP session.
+
+00:34:08:05 - 00:34:15:14
+Keith
+The pattern type is HTTP dash request dash body. And the anchor on the marker is at byte zero of the body.
+
+00:34:15:19 - 00:34:22:29
+Keith
+Three of these fired on this capture. The one that didn't was the clip signature. And that stayed silent because the sandbox never touched a clipboard.
+
+00:34:22:33 - 00:34:56:08
+Keith
+So I put this in here so sibling runs would be able to catch that clipboard usage if it happens. The eval functions you see here do one thing. They raise a notice with the marker and the beginning of the match body riding along so you have it as evidence. So three rules scored. Clip played the whole match without even touching the ball. And every message opens with its marker. The malware signs its work at byte zero every single time. But there's a trap in Zeek's signature land that's almost ate this rule.
+
+00:34:56:12 - 00:35:00:34
+Keith
+And in order to figure it out, you got to ask me about pattern types.
+
+00:35:00:38 - 00:35:16:28
+Keith
+So the pattern type is a design lesson of this whole detection effort. If you choose it wrongly, the rule is going to silently see nothing. So measured on this capture, the payload patterns match about 1,500 bytes by default.
+
+00:35:16:32 - 00:35:28:36
+Keith
+The first 1500 bytes. And now you know our first screenshot body alone is 144 kilobytes. So everything after that would be missed by a payload body in Zeek signatures.
+
+00:35:28:41 - 00:35:45:20
+Keith
+Zeek request body checks the request body itself. The carat anchors to the start of that body and then it matches all 23 of them. So a payload pattern is like a bouncer who checks the first 1500 people in line and then just falls asleep.
+
+00:35:45:25 - 00:35:49:21
+Keith
+Our evidence, back of the line, back of the queue the whole time.
+
+00:35:49:26 - 00:35:55:26
+Keith
+So the pattern type here is right, but does this signature actually run? Let's watch it fire.
+
+00:35:55:31 - 00:36:05:42
+Keith
+Zeek reads the capture again, this time with the scripts directory loaded and notice.log comes back with three rows, one per marker. The UID column is proof instead of the claim.
+
+00:36:05:54 - 00:36:16:10
+Keith
+All three rows carry one UID in that same run and the HTTP.log's post connection carries the exact same UID. So one connection produced all three notices.
+
+00:36:16:15 - 00:36:46:25
+Keith
+Screen colon, fast beacon colon, and heartbeat colon. Each get one notice each and the subfield carries the matched body as evidence and in the case of the screen that's going to be the JPEG bodies. The pattern types exactly from Zeek docs say payload matches the raw tcp payload of a connection. Its patterns are implicitly anchored at the stream's first byte and by default Zeek stops matching after about 1k of payload.
+
+00:36:46:30 - 00:36:54:44
+Keith
+Measured on this capture, I got to about 1,523 bytes before it started missing things.
+
+00:36:54:49 - 00:37:06:23
+Keith
+HTTP request body, it matches an entirely different source, each request body as the HTTP analyzer extracts it. So the payload window just never applies to this.
+
+00:37:06:28 - 00:37:30:24
+Keith
+Only the first screen sits inside the measured window. Fast Beacon and Heartbeat live beyond this 144 kilobyte screenshot up front. So what this is showing you is that our HTTP request body type is actually matching past the 144 kilobyte screenshot, proving that we're seeing farther into the connection than the payload type.
+
+00:37:30:29 - 00:37:41:59
+Keith
+Now, here our clip stayed silent because it just never was passed on the wire. Its signature does sit there ready to fire, though, the next time you run a PCAP through it that has a clip in it.
+
+00:37:42:04 - 00:37:55:58
+Keith
+Nobody needs an alert on every single marker that goes across the wire on every single connection. And you can see here that we actually just suppressed it to three of them for that connection. Every marker was caught by name.
+
+00:37:56:02 - 00:38:04:21
+Keith
+And what we're going to do on the next slide is look at some of our logs and see if we can pick up on any other names in case you didn't have this detector loaded at the time.
+
+00:38:04:26 - 00:38:18:47
+Keith
+Here's a version that doesn't hard code the markers at all. It expects an uppercase label, at least three characters, a colon, at byte zero of the post body. It will find all three messages in our original PCAP of Nanocore.
+
+00:38:18:51 - 00:38:25:26
+Keith
+It would also find things like keylog colon or file colon or whatever the malware writes next.
+
+00:38:25:31 - 00:38:45:37
+Keith
+So benign post bodies, they never start this way. Usually a JSON starts with a brace, forms will start with a key equals, and multi-part starts with a dash dash. XML starts with a less than sign. So what we are seeing here with this protocol is very unique, and that's why we're able to detect it.
+
+00:38:45:42 - 00:38:56:25
+Keith
+So this rule has never heard of Nanocore. It just knows that legitimate post bodies don't start with a capital letter. And that's the detection. Time to hand over the indicators.
+
+00:38:56:30 - 00:39:11:49
+Keith
+The file level indicators all verified against the sandbox report and the PCAP. Full SHA256 and MD5 of the dropper, the family and version out of the extracted config, the group name, and the plain text C2 URL.
+
+00:39:11:54 - 00:39:17:39
+Keith
+The URL being plain HTTP is not a typo. that's exactly how it appeared in every post.
+
+00:39:17:44 - 00:39:26:53
+Keith
+Xoilac isn't a word. It's what happens when somebody falls asleep on the keyboard halfway through naming their hacker group. So we got the files done. Let's look at the network side.
+
+00:39:26:58 - 00:39:41:36
+Keith
+The network indicators in the order DNS hands them out. The domain, the two CNAME aliases, a Baidu named one, then Cloudflare. The one IP that carried all the plain text HTTP and the two that carried TLS.
+
+00:39:41:41 - 00:39:54:39
+Keith
+Baidu.cloudflare.182682.xyz. That's two brand names and a serial number in a trench coat. We got the network mapped. Last category, the protocol itself.
+
+00:39:54:44 - 00:39:59:27
+Keith
+Here are the protocol indicators. The stuff that doesn't rotate when the infrastructure does.
+
+00:39:59:32 - 00:40:09:29
+Keith
+One JA4 for 23 TLS sessions, the dominant JA4H for 22 of 23 posts, three markers plus clip for sibling samples.
+
+00:40:09:34 - 00:40:21:07
+Keith
+The cadences are indicators too, a 10.3 second poll and a 30.7 second screenshot timer and heartbeats trailing four of the five uploads by under a second.
+
+00:40:21:12 - 00:40:26:23
+Keith
+And the anchor rule. Match the marker, never the payload.
+
+00:40:26:27 - 00:40:42:12
+Keith
+OP-S-J-L-Z-U-Q. That's the victim's Windows host name quoted verbatim from environment.machine name in the campaign's own source. Next victim is going to be a different string.
+
+00:40:42:16 - 00:40:56:50
+Keith
+So you see the same shout at byte zero 23 times. This is less about being a protocol than being a comedian using the same bit over and over. Indicators are handed over. Let's pull all these threads together.
+
+00:40:56:55 - 00:40:59:17
+Keith
+Six things to take home from this capture.
+
+00:40:59:22 - 00:41:18:41
+Keith
+Plain text C2 means the message types are right there in the log. A marker at byte zero needs no decryption and no interception. The 301 lesson, a redirect matters only if the endpoint obeys. Ours followed it with an HTTPS get, but the payloads, the screenshots and things, it's sent over plain HTTP.
+
+00:41:18:46 - 00:41:24:36
+Keith
+Two independent timers give you two independent detections. Cadence can be an indicator all by itself.
+
+00:41:24:41 - 00:41:43:03
+Keith
+The Zeek pattern type lesson. The worst detector failure, is the one that comes back clean because it never looked. JA4 through IP rotation and the exfil itself, five JPEGs carved straight out of the PCAP with sizes, metadata, and pixels all readable in the clear.
+
+00:41:43:08 - 00:41:59:55
+Keith
+The most criminal thing in this capture isn't the screenshots. It's the punctuality. Six lessons and 38 slides. If you read this last slide first, nobody needed the other 37 slides. One thing left to say, and it's the usual two things.
+
+00:42:00:00 - 00:42:14:42
+Keith
+Please, like and subscribe. This operator paid for a RAT and a domain and a CDN and got a screenshot of Notepad. If you subscribe, at least one of you is getting a better return than he did.
+
+00:42:14:47 - 00:42:31:53
+Keith
+And when you subscribe that's how videos like this reach the people that need them. Don't forget about the interactive slides at unpackthepcap.com. So every query and everything that I described here is copy and pasteable straight out of that slide deck I'm Keith I'll see you on the next PCAP. Thanks .
+
