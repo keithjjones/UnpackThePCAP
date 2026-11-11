@@ -319,7 +319,7 @@ def render_card(episode: Episode, slides_base: str, repo_url: str) -> str:
         chips.append(render_chip("facebook", "Facebook", episode.facebook))
     chips.append(render_chip("slides", "Slides", deck_url))
     if episode.has_scripts:
-        chips.append(render_chip("scripts", "scripts", f"{tree}/scripts"))
+        chips.append(render_chip("scripts", "Scripts", f"{tree}/scripts"))
     if episode.has_transcript:
         chips.append(render_chip("txt", "Transcript", f"{blob}/transcript.txt"))
     if not episode.youtube:
